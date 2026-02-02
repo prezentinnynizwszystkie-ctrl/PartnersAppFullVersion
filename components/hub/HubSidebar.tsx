@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { UserRole } from '../../types';
+import { UserRole } from '../../types.ts';
 import { Link } from 'react-router-dom';
-import { LayoutDashboard, Users, UserCircle, LogOut, FileText, ArrowRight, Receipt, Settings } from 'lucide-react';
+import { LayoutDashboard, Users, UserCircle, LogOut, FileText, ArrowRight, Receipt, Settings, BookOpen } from 'lucide-react';
 
 interface HubSidebarProps {
     role: UserRole;
@@ -16,11 +16,15 @@ interface HubSidebarProps {
     onResetView?: () => void;
     onLogout: () => void;
     partnerName?: string;
+    // New prop for instructions
+    showInstructions?: boolean;
+    setShowInstructions?: (show: boolean) => void;
 }
 
 export const HubSidebar: React.FC<HubSidebarProps> = ({ 
     role, session, adminSection, setAdminSection, viewingAsSlug, viewingSalesperson, 
-    activeTab, setActiveTab, onResetView, onLogout, partnerName
+    activeTab, setActiveTab, onResetView, onLogout, partnerName,
+    showInstructions, setShowInstructions
 }) => {
     return (
         <aside className="w-full md:w-72 bg-slate-900 text-white p-6 flex flex-col justify-between flex-shrink-0">
@@ -35,15 +39,16 @@ export const HubSidebar: React.FC<HubSidebarProps> = ({
 
                 <nav className="space-y-2">
                     {/* Admin Navigation */}
-                    {role === 'ADMIN' && onResetView && setAdminSection && (
+                    {role === 'ADMIN' && onResetView && setAdminSection && setShowInstructions && (
                         <>
                              <div className="px-4 py-2 text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Zarządzanie</div>
                             <button 
                                 onClick={() => {
                                     setAdminSection('PARTNERS');
                                     onResetView();
+                                    setShowInstructions(false);
                                 }}
-                                className={`w-full text-left px-4 py-3 rounded-xl font-bold transition-colors flex items-center gap-3 ${adminSection === 'PARTNERS' && !viewingAsSlug && !viewingSalesperson ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}
+                                className={`w-full text-left px-4 py-3 rounded-xl font-bold transition-colors flex items-center gap-3 ${adminSection === 'PARTNERS' && !viewingAsSlug && !viewingSalesperson && !showInstructions ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}
                             >
                                 <LayoutDashboard size={20} /> Lista Partnerów
                             </button>
@@ -51,10 +56,20 @@ export const HubSidebar: React.FC<HubSidebarProps> = ({
                                 onClick={() => {
                                     setAdminSection('SALES');
                                     onResetView();
+                                    setShowInstructions(false);
                                 }}
-                                className={`w-full text-left px-4 py-3 rounded-xl font-bold transition-colors flex items-center gap-3 ${adminSection === 'SALES' && !viewingSalesperson ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}
+                                className={`w-full text-left px-4 py-3 rounded-xl font-bold transition-colors flex items-center gap-3 ${adminSection === 'SALES' && !viewingSalesperson && !showInstructions ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}
                             >
                                 <Users size={20} /> Zespół Sprzedaży
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    onResetView();
+                                    setShowInstructions(true);
+                                }}
+                                className={`w-full text-left px-4 py-3 rounded-xl font-bold transition-colors flex items-center gap-3 ${showInstructions ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}
+                            >
+                                <BookOpen size={20} /> Instrukcje i Wiedza
                             </button>
                         </>
                     )}
@@ -99,10 +114,21 @@ export const HubSidebar: React.FC<HubSidebarProps> = ({
                         </>
                     )}
 
-                    {role === 'HANDLOWIEC' && (
-                        <button className="w-full text-left px-4 py-3 rounded-xl font-bold bg-blue-600 text-white flex items-center gap-3">
-                            <UserCircle size={20} /> Panel Handlowca
-                        </button>
+                    {role === 'HANDLOWIEC' && setShowInstructions && (
+                        <>
+                            <button 
+                                onClick={() => setShowInstructions(false)}
+                                className={`w-full text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 transition-colors ${!showInstructions ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}
+                            >
+                                <UserCircle size={20} /> Twoi Partnerzy
+                            </button>
+                            <button 
+                                onClick={() => setShowInstructions(true)}
+                                className={`w-full text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 transition-colors ${showInstructions ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}
+                            >
+                                <BookOpen size={20} /> Instrukcje i Wiedza
+                            </button>
+                        </>
                     )}
                 </nav>
             </div>

@@ -1,0 +1,19 @@
+
+# SŁOWNIK POJĘĆ PROJEKTU MULTIBAJKA
+
+1. APLIKACJA PARTNERA (Partner App / B2C App)
+   - Adres: /:slug (np. /fikolandia)
+   - Opis: To jest "Wzór aplikacji", który partner pokazuje SWOIM klientom (rodzicom).
+   - Zawiera: Hero Video, Landing Page Partnera, Kreator (Wizard) do zamawiania bajki.
+   - Cel: Sprzedaż bajki klientowi końcowemu.
+
+2. OFERTA B2B (B2B Offer)
+   - Adres: /:slug/oferta-b2b (np. /fikolandia/oferta-b2b)
+   - Opis: Spersonalizowana oferta handlowa skierowana DO PARTNERA (właściciela sali zabaw).
+   - Zawiera: Prezentację korzyści, modele rozliczeń, kalkulator zysków, proces wdrożenia.
+   - Cel: Przekonanie partnera do współpracy z nami.
+
+3. HUB / PANEL (Dashboard)
+   - Adres: /hub
+   - Opis: Miejsce zarzadzania dla Administratora, Handlowca i Partnera (po zalogowaniu).
+   - Umożliwia: Podgląd Aplikacji Partnera, Podgląd Oferty B2B, Edycję danych, Rozliczenia.

@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../utils/supabaseClient';
-import { Partner } from '../../types';
+import { supabase } from '../../utils/supabaseClient.ts';
+import { Partner } from '../../types.ts';
+import { Link } from 'react-router-dom';
 import { 
   Loader2, Plus, X, Upload, CheckCircle2, FileText, Settings,
-  ChevronRight, ChevronLeft, DollarSign, BarChart3, Ticket, FileCheck, Eye, Edit3, ExternalLink
+  ChevronRight, ChevronLeft, DollarSign, BarChart3, Ticket, FileCheck, Eye, Edit3, ExternalLink, MapPin, Globe, Mail, User, Briefcase, Smartphone, ArrowRight, Building2, Phone
 } from 'lucide-react';
 
 interface SalesPanelProps {
@@ -29,11 +30,13 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
         genitive: '',
         slug: '',
         email: '',
+        phone: '', // NOWE
         city: '',
         type: 'Sala Zabaw',
         status: 'BRAK' as 'AKTYWNY' | 'NIEAKTYWNY' | 'BRAK',
         model: 'BRAK' as 'PAKIET' | 'PROWIZJA' | 'BRAK',
         packetAmount: 0,
+        sellPrice: '' as number | '', // NOWE
         ageGroups: [] as string[]
     });
     
@@ -93,20 +96,22 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                 genitive: partner.PartnerNameGenitive || '',
                 slug: partner.Slug,
                 email: partner.contact_email || '',
+                phone: partner.contact_number || '', // LOAD PHONE
                 city: partner.Miasto || '',
                 type: partner.PartnerType || 'Sala Zabaw',
                 status: partner.Status,
                 model: partner.Model || 'BRAK',
                 packetAmount: partner.SprzedazIlosc || 0,
+                sellPrice: partner.SellPrice || '', // LOAD SELL PRICE
                 ageGroups: loadedAgeGroups
             });
             setSelectedPartner(partner);
         } else {
             // New Mode
             setFormData({
-                name: '', genitive: '', slug: '', email: '', city: '',
+                name: '', genitive: '', slug: '', email: '', phone: '', city: '',
                 type: 'Sala Zabaw', status: 'BRAK', model: 'BRAK',
-                packetAmount: 0, ageGroups: []
+                packetAmount: 0, sellPrice: '', ageGroups: []
             });
             setSelectedPartner(null);
         }
@@ -144,31 +149,25 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
         setSubmitting(true);
         try {
             // --- FIX: SANITIZATION FUNCTION ---
-            // Zamienia polskie znaki na łacińskie, spacje na podkreślniki, usuwa znaki specjalne
             const sanitizeForStorage = (text: string) => {
                 return text.toLowerCase()
                     .replace(/ą/g, 'a').replace(/ć/g, 'c').replace(/ę/g, 'e')
                     .replace(/ł/g, 'l').replace(/ń/g, 'n').replace(/ó/g, 'o')
                     .replace(/ś/g, 's').replace(/ź/g, 'z').replace(/ż/g, 'z')
-                    .replace(/\s+/g, '_') // Spacje na podkreślniki
-                    .replace(/[^a-z0-9_]/g, ''); // Usuń inne znaki specjalne
+                    .replace(/\s+/g, '_')
+                    .replace(/[^a-z0-9_]/g, '');
             };
 
-            // 1. Prepare Paths (Sanitized)
-            // Używamy bezpiecznych nazw folderów
             const cityFolder = formData.city ? sanitizeForStorage(formData.city.trim()) : 'unknown';
             const nameFolder = sanitizeForStorage(formData.name.trim());
             
-            // Ścieżka bazowa: Partners/warszawa/wesola_laka
             const basePath = `Partners/${cityFolder}/${nameFolder}`;
             
             let logoUrl = selectedPartner?.LogoUrl || null;
             let contractUrl = selectedPartner?.UmowaUrl || null;
 
-            // 2. Upload Logo if exists
             if (logoFile) {
                 const ext = logoFile.name.split('.').pop();
-                // Nazwa pliku też powinna być bezpieczna: Logo_wesola_laka.png
                 const path = `${basePath}/Logo_${nameFolder}.${ext}`;
                 const { error: uploadError } = await supabase.storage.from('PartnersApp').upload(path, logoFile, { upsert: true });
                 if (uploadError) throw uploadError;
@@ -176,7 +175,6 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                 logoUrl = publicUrl.publicUrl;
             }
 
-            // 3. Upload Contract if exists
             if (contractFile) {
                 const ext = contractFile.name.split('.').pop();
                 const path = `${basePath}/Umowa_${nameFolder}.${ext}`;
@@ -186,12 +184,12 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                 contractUrl = publicUrl.publicUrl;
             }
 
-            // 4. Upsert Data to Partners Table
             const payload = {
                 PartnerName: formData.name,
                 PartnerNameGenitive: formData.genitive || null,
                 Slug: formData.slug,
                 contact_email: formData.email,
+                contact_number: formData.phone || null, // SAVE PHONE
                 PartnerType: formData.type,
                 IdOpiekuna: salespersonId,
                 Status: formData.status,
@@ -199,7 +197,8 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                 Miasto: formData.city,
                 LogoUrl: logoUrl,
                 UmowaUrl: contractUrl,
-                SprzedazIlosc: formData.model === 'PAKIET' ? formData.packetAmount : (selectedPartner?.SprzedazIlosc || 0)
+                SprzedazIlosc: formData.model === 'PAKIET' ? formData.packetAmount : (selectedPartner?.SprzedazIlosc || 0),
+                SellPrice: formData.model === 'PROWIZJA' && formData.sellPrice !== '' ? Number(formData.sellPrice) : (selectedPartner?.SellPrice || null) // SAVE PRICE
             };
 
             let partnerId = selectedPartner?.Id;
@@ -216,17 +215,14 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
 
             if (error) throw error;
 
-            // 5. UPDATE RELATION TABLE (PartnerAgeGroups) - Full Replacement Strategy
             if (partnerId) {
-                // A. Usuń stare powiązania dla tego partnera (czyszczenie)
                 await supabase.schema('PartnersApp').from('PartnerAgeGroups').delete().eq('partner_id', partnerId);
                 
-                // B. Przygotuj nowe powiązania, jeśli jakieś wybrano
                 if (formData.ageGroups.length > 0) {
                     const relationInserts = formData.ageGroups.map(groupStr => {
                         const groupObj = ageGroupOptions.find(opt => opt.AgeGroup === groupStr);
                         return groupObj ? { partner_id: partnerId, age_group_id: groupObj.Id } : null;
-                    }).filter(Boolean); // Usuń nulle
+                    }).filter(Boolean);
 
                     if (relationInserts.length > 0) {
                         const { error: relError } = await supabase.schema('PartnersApp').from('PartnerAgeGroups').insert(relationInserts);
@@ -236,7 +232,11 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
             }
 
             alert(selectedPartner ? 'Partner zaktualizowany!' : 'Partner dodany!');
-            setMode('LIST');
+            setMode('DETAILS'); // Stay in details after edit
+            if (!selectedPartner && partnerId) {
+                 // If new, switch to details of new partner (simple reload for now)
+                 setMode('LIST');
+            }
             fetchMyPartners();
 
         } catch (err: any) {
@@ -251,24 +251,45 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
 
     const handleAddCodes = () => {
         if (!addCodesAmount || Number(addCodesAmount) <= 0) return;
-        // Simulate
         alert(`KODY ZOSTAŁY POMYŚLNIE DODANE (${addCodesAmount} szt.) ORAZ WYSŁANE NA ADRES MAILOWY PARTNERA.`);
         setAddCodesAmount('');
     };
 
     // --- RENDER HELPERS ---
     
-    // Stats Simulation
     const simulateStats = (partner: Partner) => {
-        // Mock data logic
-        const revenue = 1000; // Mock revenue
+        const revenue = 1000;
         const commission = Math.round((revenue / 2) * 0.20);
-        const totalCodes = partner.SprzedazIlosc || 0; // Using DB value as total
-        const usedCodes = Math.floor(totalCodes * 0.4); // Mock 40% usage
+        const totalCodes = partner.SprzedazIlosc || 0;
+        const usedCodes = Math.floor(totalCodes * 0.4);
         const availableCodes = totalCodes - usedCodes;
-        
         return { revenue, commission, totalCodes, usedCodes, availableCodes };
     };
+    
+    // UI Component for Detail Row (Replica of screenshot style)
+    const InfoRow = ({ icon, label, value, isFile, isList }: { icon: any, label: string, value: any, isFile?: boolean, isList?: boolean }) => (
+        <div className="flex items-start gap-4">
+            <div className="mt-1 text-slate-300">
+                {icon}
+            </div>
+            <div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">{label}</div>
+                <div className="font-bold text-slate-800 text-sm">
+                    {isFile ? (
+                        value ? <a href={value} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">Zobacz plik</a> : <span className="text-slate-400 italic">Brak pliku</span>
+                    ) : isList ? (
+                         Array.isArray(value) && value.length > 0 ? (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                                {value.map((v: string) => <span key={v} className="bg-slate-100 text-slate-600 text-[10px] px-2 py-0.5 rounded font-bold">{v}</span>)}
+                            </div>
+                         ) : <span className="text-slate-400 italic">Brak danych</span>
+                    ) : (
+                        value || <span className="text-slate-400 italic">Brak danych</span>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
 
     if (loading) return <div className="flex justify-center py-12"><Loader2 className="animate-spin text-slate-300" /></div>;
 
@@ -332,7 +353,7 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
              <h3 className="text-2xl font-black text-slate-900 mb-6">{selectedPartner ? 'Edytuj Partnera' : 'Nowy Partner'}</h3>
              
              <form onSubmit={handleSavePartner} className="space-y-6">
-                {/* Basic Info */}
+                {/* Form fields same as before... keeping it concise */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nazwa Firmy <span className="text-red-500">*</span></label>
@@ -360,10 +381,13 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                     </div>
                 </div>
 
-                {/* Configuration */}
+                <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Telefon Kontaktowy</label>
+                    <input type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="input-std" placeholder="np. 600 500 400" />
+                </div>
+
                 <div className="p-6 bg-slate-50 rounded-2xl space-y-4 border border-slate-100">
                     <h4 className="font-black text-slate-800 text-sm uppercase flex items-center gap-2"><Settings size={14}/> Konfiguracja</h4>
-                    
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Status</label>
@@ -382,16 +406,26 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                             </select>
                         </div>
                     </div>
-                    
                     {formData.model === 'PAKIET' && (
                          <div className="space-y-1 animate-in fade-in">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Zakupiona ilość kodów</label>
                             <input type="number" value={formData.packetAmount} onChange={e => setFormData({...formData, packetAmount: Number(e.target.value)})} className="input-std bg-white border-blue-200 text-blue-800" />
                          </div>
                     )}
+                    {formData.model === 'PROWIZJA' && (
+                         <div className="space-y-1 animate-in fade-in">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ustalona Cena Sprzedaży (PLN)</label>
+                            <input 
+                                type="number" 
+                                value={formData.sellPrice} 
+                                onChange={e => setFormData({...formData, sellPrice: e.target.value === '' ? '' : Number(e.target.value)})} 
+                                className="input-std bg-white border-green-200 text-green-800 font-bold" 
+                                placeholder="np. 149"
+                            />
+                         </div>
+                    )}
                 </div>
 
-                {/* Age Groups - Now Dynamic from DB */}
                 <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Grupy Wiekowe</label>
                     <div className="flex flex-wrap gap-2">
@@ -411,25 +445,24 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                     </div>
                 </div>
 
-                {/* Files */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Logo (Opcjonalnie)</label>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Logo</label>
                         <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:bg-slate-50 transition-colors relative">
                             <input type="file" accept="image/*" onChange={e => setLogoFile(e.target.files?.[0] || null)} className="absolute inset-0 opacity-0 cursor-pointer" />
                             <div className="flex flex-col items-center gap-1">
                                 {logoFile ? <CheckCircle2 className="text-green-500" /> : <Upload className="text-slate-300" />}
-                                <span className="text-xs font-bold text-slate-500 truncate max-w-full">{logoFile ? logoFile.name : 'Kliknij aby wgrać'}</span>
+                                <span className="text-xs font-bold text-slate-500 truncate max-w-full">{logoFile ? logoFile.name : 'Wgraj plik'}</span>
                             </div>
                         </div>
                      </div>
                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Skan Umowy (Opcjonalnie)</label>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Umowa</label>
                         <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:bg-slate-50 transition-colors relative">
                             <input type="file" accept=".pdf,image/*" onChange={e => setContractFile(e.target.files?.[0] || null)} className="absolute inset-0 opacity-0 cursor-pointer" />
                             <div className="flex flex-col items-center gap-1">
                                 {contractFile ? <CheckCircle2 className="text-green-500" /> : <FileText className="text-slate-300" />}
-                                <span className="text-xs font-bold text-slate-500 truncate max-w-full">{contractFile ? contractFile.name : 'Kliknij aby wgrać'}</span>
+                                <span className="text-xs font-bold text-slate-500 truncate max-w-full">{contractFile ? contractFile.name : 'Wgraj plik'}</span>
                             </div>
                         </div>
                      </div>
@@ -439,168 +472,178 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                     {submitting ? <Loader2 className="animate-spin" /> : 'Zapisz Partnera'}
                 </button>
              </form>
-
-             <style>{`
-                .input-std {
-                    width: 100%;
-                    padding: 0.75rem 1rem;
-                    border-radius: 0.75rem;
-                    background-color: #f8fafc;
-                    border: 1px solid #e2e8f0;
-                    font-weight: 600;
-                    color: #334155;
-                    outline: none;
-                    transition: all 0.2s;
-                }
-                .input-std:focus {
-                    border-color: #3b82f6;
-                    background-color: #ffffff;
-                }
-             `}</style>
+             <style>{` .input-std { width: 100%; padding: 0.75rem 1rem; border-radius: 0.75rem; background-color: #f8fafc; border: 1px solid #e2e8f0; font-weight: 600; color: #334155; outline: none; transition: all 0.2s; } .input-std:focus { border-color: #3b82f6; background-color: #ffffff; } `}</style>
         </div>
     );
 
-    // --- VIEW: DETAILS ---
+    // --- VIEW: DETAILS (REDESIGNED) ---
     if (mode === 'DETAILS' && selectedPartner) {
         const stats = simulateStats(selectedPartner);
         
+        let displayAgeGroups: string[] = [];
+        if (selectedPartner.PartnerAgeGroups && Array.isArray(selectedPartner.PartnerAgeGroups)) {
+            displayAgeGroups = selectedPartner.PartnerAgeGroups.map((item: any) => item.AgeGroups?.AgeGroup).filter(Boolean);
+        }
+
         return (
-            <div className="max-w-5xl mx-auto animate-in slide-in-from-right-4">
-                {/* Header Nav */}
-                <div className="mb-6 flex items-center gap-4">
+            <div className="max-w-6xl mx-auto animate-in slide-in-from-right-4 pb-20">
+                {/* 1. HEADER */}
+                <div className="mb-8 flex items-center gap-4">
                     <button onClick={() => setMode('LIST')} className="bg-white p-3 rounded-full shadow-sm text-slate-500 hover:text-slate-900 transition-colors"><ChevronLeft size={20}/></button>
                     <div>
-                        <h2 className="text-3xl font-display font-black text-slate-900 leading-none">{selectedPartner.PartnerName}</h2>
-                        <div className="flex items-center gap-2 mt-1">
-                             <span className="text-xs font-bold uppercase text-slate-400">{selectedPartner.Miasto}</span>
-                             <span className="text-slate-300">•</span>
-                             <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${selectedPartner.Status === 'AKTYWNY' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>{selectedPartner.Status}</span>
-                        </div>
-                    </div>
-                    <div className="ml-auto flex gap-3">
-                         <a
-                             href={`/#/${selectedPartner.Slug}`} 
-                             target="_blank"
-                             rel="noreferrer"
-                             className="bg-white text-blue-600 border border-blue-100 px-5 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-50 transition-colors"
-                         >
-                             <ExternalLink size={18} /> Zobacz Ofertę
-                         </a>
-                         <button onClick={() => handleInitForm(selectedPartner)} className="bg-slate-900 text-white px-5 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-800 transition-colors">
-                             <Edit3 size={18} /> Edytuj dane
-                         </button>
+                        <h2 className="text-3xl lg:text-4xl font-display font-black text-slate-900 leading-none">{selectedPartner.PartnerName}</h2>
+                        <div className="text-slate-400 font-bold uppercase tracking-widest text-xs mt-1">{selectedPartner.Miasto || 'Brak Miasta'}</div>
                     </div>
                 </div>
 
-                {/* Content Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* 2. TILES SECTION (NEW) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
                     
-                    {/* LEFT COL: Stats & Codes */}
-                    <div className="lg:col-span-2 space-y-8">
-                        {/* Stats Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-between">
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl"><DollarSign size={24}/></div>
-                                    <span className="text-xs font-bold text-slate-400 uppercase">Przychód Partnera</span>
-                                </div>
-                                <div>
-                                    <div className="text-3xl font-black text-slate-900">{stats.revenue} PLN</div>
-                                    <div className="text-xs font-medium text-slate-500 mt-1">Suma całkowita (symulacja)</div>
-                                </div>
+                    {/* KAFELEK 1: APLIKACJA PARTNERA (B2C) */}
+                    <div className="p-8 bg-gradient-to-br from-blue-600 to-blue-800 text-white rounded-[2rem] shadow-xl relative overflow-hidden group hover:scale-[1.01] transition-transform">
+                        <div className="relative z-10 flex flex-col h-full">
+                            <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mb-6 backdrop-blur-sm">
+                                <Smartphone size={32} className="text-white" />
                             </div>
-                             <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-between">
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl"><BarChart3 size={24}/></div>
-                                    <span className="text-xs font-bold text-slate-400 uppercase">Twoja Prowizja</span>
-                                </div>
-                                <div>
-                                    <div className="text-3xl font-black text-slate-900">{stats.commission} PLN</div>
-                                    <div className="text-xs font-medium text-slate-500 mt-1">20% z połowy przychodu</div>
-                                </div>
-                            </div>
+                            <h3 className="text-2xl font-black mb-2 uppercase tracking-wide">ZOBACZ WZÓR APLIKACJI PARTNERA</h3>
+                            <p className="opacity-80 mb-8 text-sm font-medium leading-relaxed">
+                                Podgląd jak będzie wyglądała spersonalizowana aplikacja partnera - którą będzie przedstawiał swoim klientom.
+                            </p>
+                            <Link 
+                                to={`/${selectedPartner.Slug}`} 
+                                target="_blank"
+                                className="mt-auto inline-flex items-center justify-center gap-2 bg-white text-blue-800 px-6 py-4 rounded-xl font-bold hover:bg-blue-50 transition-colors shadow-lg"
+                            >
+                                WYŚWIETL APLIKACJĘ <ArrowRight size={18} />
+                            </Link>
                         </div>
-
-                        {/* Codes Manager */}
-                        <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100">
-                             <div className="flex items-center justify-between mb-8">
-                                 <h3 className="text-xl font-black text-slate-900 flex items-center gap-2"><Ticket size={22} className="text-slate-400" /> Zarządzanie Kodami</h3>
-                                 <div className="text-right">
-                                     <div className="text-xs font-bold text-slate-400 uppercase">Model</div>
-                                     <div className="font-bold text-slate-900">{selectedPartner.Model}</div>
-                                 </div>
-                             </div>
-
-                             <div className="grid grid-cols-3 gap-4 mb-8">
-                                 <div className="p-4 bg-slate-50 rounded-2xl text-center">
-                                     <div className="text-2xl font-black text-slate-900">{stats.totalCodes}</div>
-                                     <div className="text-[10px] font-bold text-slate-400 uppercase">Wszystkie</div>
-                                 </div>
-                                 <div className="p-4 bg-green-50 rounded-2xl text-center border border-green-100">
-                                     <div className="text-2xl font-black text-green-700">{stats.availableCodes}</div>
-                                     <div className="text-[10px] font-bold text-green-600 uppercase">Dostępne</div>
-                                 </div>
-                                 <div className="p-4 bg-slate-50 rounded-2xl text-center opacity-60">
-                                     <div className="text-2xl font-black text-slate-900">{stats.usedCodes}</div>
-                                     <div className="text-[10px] font-bold text-slate-400 uppercase">Użyte</div>
-                                 </div>
-                             </div>
-
-                             <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                                 <h4 className="font-bold text-slate-700 mb-4 text-sm">Dodaj pule kodów</h4>
-                                 <div className="flex gap-4">
-                                     <input 
-                                        type="number" 
-                                        placeholder="Ilość np. 50" 
-                                        value={addCodesAmount}
-                                        onChange={e => setAddCodesAmount(e.target.value === '' ? '' : Number(e.target.value))}
-                                        className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 font-bold"
-                                     />
-                                     <button onClick={handleAddCodes} className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-800 transition-colors">
-                                         Dodaj i wyślij
-                                     </button>
-                                 </div>
-                             </div>
-                        </div>
+                        <Smartphone className="absolute -bottom-10 -right-10 text-white w-64 h-64 opacity-10 rotate-12 group-hover:rotate-6 transition-transform duration-500" />
                     </div>
 
-                    {/* RIGHT COL: Contract & Info */}
-                    <div className="space-y-8">
-                        {/* Contract Preview */}
-                        <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 h-full">
-                            <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2"><FileCheck size={22} className="text-slate-400" /> Umowa</h3>
-                            
-                            {selectedPartner.UmowaUrl ? (
-                                <div className="space-y-4">
-                                    <div className="aspect-[3/4] bg-slate-100 rounded-xl overflow-hidden border border-slate-200 relative group">
-                                         {/* Simple preview logic: if image show it, if pdf show icon */}
-                                         {selectedPartner.UmowaUrl.match(/\.(jpeg|jpg|png|webp)$/i) ? (
-                                             <img src={selectedPartner.UmowaUrl} alt="Umowa" className="w-full h-full object-cover" />
-                                         ) : (
-                                             <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 p-6 text-center">
-                                                 <FileText size={48} className="mb-2" />
-                                                 <span className="text-xs font-bold">Dokument PDF</span>
-                                             </div>
-                                         )}
-                                         <a href={selectedPartner.UmowaUrl} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white font-bold gap-2">
-                                             <Eye size={20} /> Podgląd
-                                         </a>
-                                    </div>
-                                    <div className="flex items-center justify-center gap-2 text-green-600 font-bold text-xs bg-green-50 py-2 rounded-lg">
-                                        <CheckCircle2 size={14} /> Umowa wgrana
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="h-40 rounded-xl bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400">
-                                    <FileText size={32} className="mb-2 opacity-50" />
-                                    <span className="text-xs font-bold">Brak wgranej umowy</span>
-                                    <button onClick={() => handleInitForm(selectedPartner)} className="mt-2 text-blue-600 text-xs font-bold hover:underline">Edytuj aby dodać</button>
-                                </div>
-                            )}
+                    {/* KAFELEK 2: OFERTA B2B */}
+                    <div className="p-8 bg-slate-900 text-white rounded-[2rem] shadow-xl relative overflow-hidden border-2 border-slate-800 group hover:scale-[1.01] transition-transform">
+                        <div className="relative z-10 flex flex-col h-full">
+                            <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mb-6 backdrop-blur-sm border border-white/10">
+                                <Briefcase size={32} className="text-amber-400" />
+                            </div>
+                            <h3 className="text-2xl font-black mb-2 uppercase tracking-wide text-amber-400">ZOBACZ OFERTĘ DLA PARTNERA</h3>
+                            <p className="text-slate-400 mb-8 text-sm font-medium leading-relaxed">
+                                Podgląd spersonalizowanej oferty B2B dla partnera.
+                            </p>
+                            <Link 
+                                to={`/${selectedPartner.Slug}/oferta-b2b`}
+                                target="_blank"
+                                className="mt-auto inline-flex items-center justify-center gap-2 bg-amber-400 text-slate-900 px-6 py-4 rounded-xl font-bold hover:bg-amber-300 transition-colors shadow-lg shadow-amber-400/20"
+                            >
+                                WYŚWIETL OFERTĘ <ArrowRight size={18} />
+                            </Link>
                         </div>
+                        <Building2 className="absolute -bottom-10 -right-10 text-slate-700 w-64 h-64 opacity-20 -rotate-12 group-hover:-rotate-6 transition-transform duration-500" />
                     </div>
 
                 </div>
+
+                {/* 3. DATA GRID (Like Screenshot) */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    
+                    {/* LEFT CARD: Dane Partnera */}
+                    <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col">
+                        <div className="flex justify-between items-center mb-8">
+                            <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2"><User size={20} /> Dane Partnera</h3>
+                            <button onClick={() => handleInitForm(selectedPartner!)} className="text-blue-600 text-xs font-bold hover:underline">Edytuj sekcję</button>
+                        </div>
+                        <div className="space-y-6 flex-1">
+                            <InfoRow icon={<Settings size={18}/>} label="Nazwa Firmy" value={selectedPartner.PartnerName} />
+                            <InfoRow icon={<FileText size={18}/>} label="Dopełniacz (Nagłówek)" value={selectedPartner.PartnerNameGenitive} />
+                            <InfoRow icon={<Globe size={18}/>} label="Slug (Link)" value={selectedPartner.Slug} />
+                            <InfoRow icon={<MapPin size={18}/>} label="Miasto" value={selectedPartner.Miasto} />
+                            <InfoRow icon={<Mail size={18}/>} label="Email Kontaktowy" value={selectedPartner.contact_email} />
+                            <InfoRow icon={<Phone size={18}/>} label="Telefon Kontaktowy" value={selectedPartner.contact_number} />
+                        </div>
+                    </div>
+
+                    {/* RIGHT CARD: Konfiguracja */}
+                    <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col">
+                         <div className="flex justify-between items-center mb-8">
+                            <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2"><Settings size={20} /> Konfiguracja</h3>
+                            <button onClick={() => handleInitForm(selectedPartner!)} className="text-blue-600 text-xs font-bold hover:underline">Edytuj sekcję</button>
+                        </div>
+                        <div className="space-y-6 flex-1">
+                            <InfoRow icon={<CheckCircle2 size={18}/>} label="Status" value={selectedPartner.Status} />
+                            <InfoRow icon={<DollarSign size={18}/>} label="Model Rozliczeń" value={selectedPartner.Model} />
+                            {selectedPartner.Model === 'PROWIZJA' && (
+                                <InfoRow icon={<DollarSign size={18}/>} label="Cena Sprzedaży" value={selectedPartner.SellPrice ? `${selectedPartner.SellPrice} PLN` : 'Nie ustalono'} />
+                            )}
+                            <InfoRow icon={<Settings size={18}/>} label="Grupy Wiekowe" value={displayAgeGroups} isList />
+                            <InfoRow icon={<Upload size={18}/>} label="Logo" value={selectedPartner.LogoUrl} isFile />
+                            <InfoRow icon={<FileText size={18}/>} label="Umowa" value={selectedPartner.UmowaUrl} isFile />
+                        </div>
+                    </div>
+                </div>
+
+                {/* 4. CODE MANAGEMENT */}
+                <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 mb-8">
+                     <div className="flex items-center justify-between mb-8">
+                         <h3 className="text-xl font-black text-slate-900 flex items-center gap-2"><Ticket size={22} className="text-slate-400" /> Zarządzanie Kodami</h3>
+                         <div className="text-right">
+                             <div className="text-xs font-bold text-slate-400 uppercase">Model</div>
+                             <div className="font-bold text-slate-900">{selectedPartner.Model}</div>
+                         </div>
+                     </div>
+
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                         <div className="p-4 bg-slate-50 rounded-2xl text-center">
+                             <div className="text-2xl font-black text-slate-900">{stats.totalCodes}</div>
+                             <div className="text-[10px] font-bold text-slate-400 uppercase">Wszystkie</div>
+                         </div>
+                         <div className="p-4 bg-green-50 rounded-2xl text-center border border-green-100">
+                             <div className="text-2xl font-black text-green-700">{stats.availableCodes}</div>
+                             <div className="text-[10px] font-bold text-green-600 uppercase">Dostępne</div>
+                         </div>
+                         <div className="p-4 bg-slate-50 rounded-2xl text-center opacity-60">
+                             <div className="text-2xl font-black text-slate-900">{stats.usedCodes}</div>
+                             <div className="text-[10px] font-bold text-slate-400 uppercase">Użyte</div>
+                         </div>
+                     </div>
+
+                     <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                         <h4 className="font-bold text-slate-700 mb-4 text-sm">Dodaj pule kodów</h4>
+                         <div className="flex gap-4">
+                             <input 
+                                type="number" 
+                                placeholder="Ilość np. 50" 
+                                value={addCodesAmount}
+                                onChange={e => setAddCodesAmount(e.target.value === '' ? '' : Number(e.target.value))}
+                                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 font-bold"
+                             />
+                             <button onClick={handleAddCodes} className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-800 transition-colors">
+                                 Dodaj i wyślij
+                             </button>
+                         </div>
+                     </div>
+                </div>
+
+                {/* 5. FINANCIAL SECTION */}
+                <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100">
+                     <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2"><DollarSign size={22} className="text-slate-400" /> Finanse (Symulacja)</h3>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-slate-50 p-6 rounded-[1.5rem] flex items-center gap-4">
+                            <div className="p-3 bg-blue-100 text-blue-600 rounded-xl"><DollarSign size={24}/></div>
+                            <div>
+                                <div className="text-xs font-bold text-slate-400 uppercase">Przychód Partnera</div>
+                                <div className="text-2xl font-black text-slate-900">{stats.revenue} PLN</div>
+                            </div>
+                        </div>
+                        <div className="bg-emerald-50 p-6 rounded-[1.5rem] flex items-center gap-4 border border-emerald-100">
+                            <div className="p-3 bg-white text-emerald-600 rounded-xl shadow-sm"><BarChart3 size={24}/></div>
+                            <div>
+                                <div className="text-xs font-bold text-emerald-600 uppercase">Twoja Prowizja</div>
+                                <div className="text-2xl font-black text-emerald-800">{stats.commission} PLN</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         );
     }

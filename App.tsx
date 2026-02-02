@@ -8,6 +8,7 @@ import PartnerView from './components/PartnerView';
 import PartnerLanding from './components/PartnerLanding';
 import ArticleView from './components/ArticleView';
 import GeneratedTale from './components/GeneratedTale';
+import OfferB2BApp from './OfferB2B/App';
 
 const App: React.FC = () => {
   return (
@@ -26,10 +27,13 @@ const App: React.FC = () => {
           {/* Dynamic Route: Article page */}
           <Route path="/:slug/artykul" element={<ArticleView />} />
 
+          {/* New Route: Personalized B2B Offer */}
+          <Route path="/:slug/oferta-b2b" element={<OfferB2BApp />} />
+
           {/* The Wizard (Old PartnerView) moved to a sub-route */}
           <Route path="/:slug/kreator" element={<PartnerView />} />
 
-          {/* Partner Landing Page */}
+          {/* Partner Landing Page (Aplikacja Partnera) */}
           <Route path="/:slug" element={<PartnerLanding />} />
 
         </Routes>

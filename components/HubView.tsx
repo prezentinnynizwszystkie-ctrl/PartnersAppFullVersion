@@ -1,16 +1,17 @@
 
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { supabase } from '../utils/supabaseClient';
-import { useAuth } from '../contexts/AuthContext';
-import { Partner, Handlowiec, UserRole } from '../types';
+import { supabase } from '../utils/supabaseClient.ts';
+import { useAuth } from '../contexts/AuthContext.tsx';
+import { Partner, Handlowiec, UserRole } from '../types.ts';
 import { Loader2 } from 'lucide-react';
 
 // Imported modular components
-import { HubSidebar } from './hub/HubSidebar';
-import { AdminView } from './hub/AdminView';
-import { SalesPanel } from './hub/SalesPanel';
-import { PartnerDashboard } from './hub/PartnerDashboard';
+import { HubSidebar } from './hub/HubSidebar.tsx';
+import { AdminView } from './hub/AdminView.tsx';
+import { SalesPanel } from './hub/SalesPanel.tsx';
+import { PartnerDashboard } from './hub/PartnerDashboard.tsx';
+import { SalesInstructions } from './hub/SalesInstructions.tsx';
 
 const HubView: React.FC = () => {
   const location = useLocation();
@@ -35,6 +36,9 @@ const HubView: React.FC = () => {
   const [viewingAsSlug, setViewingAsSlug] = useState<string | null>(null);
   const [viewingSalesperson, setViewingSalesperson] = useState<Handlowiec | null>(null);
   
+  // Handlowiec/Admin Instructions State
+  const [showInstructions, setShowInstructions] = useState(false);
+
   // Partner Tabs State
   const [activeTab, setActiveTab] = useState<'OFFER' | 'SETTLEMENTS' | 'MODS'>('OFFER');
 
@@ -106,21 +110,29 @@ const HubView: React.FC = () => {
             onResetView={() => {
                 setViewingAsSlug(null);
                 setViewingSalesperson(null);
+                setShowInstructions(false);
             }}
             onLogout={handleLogout}
             partnerName={viewingPartner?.PartnerName || viewingAsSlug || ''}
+            showInstructions={showInstructions}
+            setShowInstructions={setShowInstructions}
         />
 
         {/* MAIN CONTENT AREA */}
         <main className="flex-1 p-6 md:p-10 overflow-y-auto">
             
-            {/* 1. ADMIN DASHBOARD */}
-            {role === 'ADMIN' && !viewingAsSlug && !viewingSalesperson && (
+            {/* 1. ADMIN INSTRUCTIONS */}
+            {role === 'ADMIN' && showInstructions && (
+                <SalesInstructions />
+            )}
+
+            {/* 2. ADMIN DASHBOARD (Normal View) */}
+            {role === 'ADMIN' && !viewingAsSlug && !viewingSalesperson && !showInstructions && (
                 <AdminView 
                     partners={partners}
                     salespeople={salespeople}
                     activeSection={adminSection}
-                    onViewPartner={(slug) => {
+                    onViewPartner={(slug: string) => {
                         setViewingAsSlug(slug);
                         setActiveTab('OFFER');
                     }}
@@ -128,7 +140,7 @@ const HubView: React.FC = () => {
                 />
             )}
 
-            {/* 2. ADMIN IMPERSONATING SALESPERSON (OR REAL SALESPERSON) */}
+            {/* 3. ADMIN IMPERSONATING SALESPERSON (OR REAL SALESPERSON) */}
             {viewingSalesperson && (
                 <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="mb-8 flex items-center justify-between">
@@ -151,15 +163,20 @@ const HubView: React.FC = () => {
                 </div>
             )}
 
-            {/* 3. REAL SALESPERSON (Login) */}
-            {role === 'HANDLOWIEC' && profile?.handlowiec_id && (
+            {/* 4. REAL SALESPERSON (Login) */}
+            {role === 'HANDLOWIEC' && profile?.handlowiec_id && !showInstructions && (
                 <SalesPanel 
                     salespersonId={profile.handlowiec_id} 
                     salespersonName={session?.user.email} 
                 />
             )}
 
-            {/* 4. PARTNER DASHBOARD (Real or Impersonated) */}
+            {/* 5. SALESPERSON INSTRUCTIONS */}
+            {role === 'HANDLOWIEC' && showInstructions && (
+                <SalesInstructions />
+            )}
+
+            {/* 6. PARTNER DASHBOARD (Real or Impersonated) */}
             {viewingAsSlug && viewingPartner && (
                 <PartnerDashboard 
                     partner={viewingPartner}
