@@ -143,9 +143,23 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
         e.preventDefault();
         setSubmitting(true);
         try {
-            // 1. Prepare Paths
-            const cityFolder = formData.city ? formData.city.trim() : 'UnknownCity';
-            const nameFolder = formData.name.trim();
+            // --- FIX: SANITIZATION FUNCTION ---
+            // Zamienia polskie znaki na łacińskie, spacje na podkreślniki, usuwa znaki specjalne
+            const sanitizeForStorage = (text: string) => {
+                return text.toLowerCase()
+                    .replace(/ą/g, 'a').replace(/ć/g, 'c').replace(/ę/g, 'e')
+                    .replace(/ł/g, 'l').replace(/ń/g, 'n').replace(/ó/g, 'o')
+                    .replace(/ś/g, 's').replace(/ź/g, 'z').replace(/ż/g, 'z')
+                    .replace(/\s+/g, '_') // Spacje na podkreślniki
+                    .replace(/[^a-z0-9_]/g, ''); // Usuń inne znaki specjalne
+            };
+
+            // 1. Prepare Paths (Sanitized)
+            // Używamy bezpiecznych nazw folderów
+            const cityFolder = formData.city ? sanitizeForStorage(formData.city.trim()) : 'unknown';
+            const nameFolder = sanitizeForStorage(formData.name.trim());
+            
+            // Ścieżka bazowa: Partners/warszawa/wesola_laka
             const basePath = `Partners/${cityFolder}/${nameFolder}`;
             
             let logoUrl = selectedPartner?.LogoUrl || null;
@@ -154,7 +168,8 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
             // 2. Upload Logo if exists
             if (logoFile) {
                 const ext = logoFile.name.split('.').pop();
-                const path = `${basePath}/Logo${nameFolder}.${ext}`;
+                // Nazwa pliku też powinna być bezpieczna: Logo_wesola_laka.png
+                const path = `${basePath}/Logo_${nameFolder}.${ext}`;
                 const { error: uploadError } = await supabase.storage.from('PartnersApp').upload(path, logoFile, { upsert: true });
                 if (uploadError) throw uploadError;
                 const { data: publicUrl } = supabase.storage.from('PartnersApp').getPublicUrl(path);
@@ -164,7 +179,7 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
             // 3. Upload Contract if exists
             if (contractFile) {
                 const ext = contractFile.name.split('.').pop();
-                const path = `${basePath}/Umowa${nameFolder}.${ext}`;
+                const path = `${basePath}/Umowa_${nameFolder}.${ext}`;
                 const { error: uploadError } = await supabase.storage.from('PartnersApp').upload(path, contractFile, { upsert: true });
                 if (uploadError) throw uploadError;
                 const { data: publicUrl } = supabase.storage.from('PartnersApp').getPublicUrl(path);
