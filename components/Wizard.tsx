@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, AlertCircle } from 'lucide-react';
-import { supabase } from '../../utils/supabaseClient';
+import { supabase } from '../utils/supabaseClient';
 import { Partner } from '../types';
 import { generatePersonalizedStory } from '../services/storyGenerator';
 
@@ -179,7 +179,8 @@ const Wizard: React.FC<WizardProps> = ({ onClose, primaryColor, accentColor, par
         const fileExt = childFile.name.split('.').pop();
         uploadPromises.push(
            supabase.storage.from(bucketName).upload(`${storagePath}/child.${fileExt}`, childFile, { upsert: true })
-           .then(({ data }) => {
+           .then((res) => {
+              const data = res.data;
               if(data) {
                  const { data: publicUrl } = supabase.storage.from(bucketName).getPublicUrl(data.path);
                  updates.PhotoUrl = publicUrl.publicUrl;
@@ -192,7 +193,8 @@ const Wizard: React.FC<WizardProps> = ({ onClose, primaryColor, accentColor, par
          const fileExt = partyFile.name.split('.').pop();
          uploadPromises.push(
             supabase.storage.from(bucketName).upload(`${storagePath}/party.${fileExt}`, partyFile, { upsert: true })
-            .then(({ data }) => {
+            .then((res) => {
+                const data = res.data;
                 if(data) {
                     const { data: publicUrl } = supabase.storage.from(bucketName).getPublicUrl(data.path);
                     updates.PhotoUrl1 = publicUrl.publicUrl;
@@ -204,7 +206,8 @@ const Wizard: React.FC<WizardProps> = ({ onClose, primaryColor, accentColor, par
       if (audioBlob && !skipRecording) {
          uploadPromises.push(
             supabase.storage.from(bucketName).upload(`${storagePath}/wishes.webm`, audioBlob, { upsert: true })
-            .then(({ data }) => {
+            .then((res) => {
+                const data = res.data;
                 if(data) {
                     const { data: publicUrl } = supabase.storage.from(bucketName).getPublicUrl(data.path);
                     updates.RecordUrl = publicUrl.publicUrl;
