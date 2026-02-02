@@ -132,7 +132,7 @@ const HubView: React.FC = () => {
                     partners={partners}
                     salespeople={salespeople}
                     activeSection={adminSection}
-                    onViewPartner={(slug) => {
+                    onViewPartner={(slug: string) => {
                         setViewingAsSlug(slug);
                         setActiveTab('OFFER');
                     }}

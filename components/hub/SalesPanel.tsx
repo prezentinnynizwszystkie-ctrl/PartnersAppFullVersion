@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../utils/supabaseClient.ts';
-import { Partner } from '../../types.ts';
+import { supabase } from '../../utils/supabaseClient';
+import { Partner } from '../../types';
 import { Link } from 'react-router-dom';
 import { 
   Loader2, Plus, X, Upload, CheckCircle2, FileText, Settings,
