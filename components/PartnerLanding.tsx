@@ -367,7 +367,7 @@ const PartnerLanding: React.FC = () => {
                 </span>
                 <h1 className="text-3xl md:text-5xl lg:text-6xl font-display font-black text-white leading-[1.2] mb-8 drop-shadow-lg">
                     Twoje dziecko <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] drop-shadow-sm italic relative px-1">bohaterem</span> <br />
-                    niezwykłej historii.
+                    niezwykłej historii w <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] drop-shadow-sm italic relative px-1">{partner.PartnerNameGenitive || partner.PartnerName}</span>
                 </h1>
                 <p className="text-white/80 uppercase tracking-[0.2em] font-bold text-xs md:text-sm drop-shadow-md">
                     PAMIĄTKA, KTÓRA BUDUJE CHARAKTER I ZOSTAJE NA LATA.
