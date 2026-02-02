@@ -5,7 +5,7 @@ import { Partner } from '@/types';
 import { Link } from 'react-router-dom';
 import { 
   Loader2, Plus, X, Upload, CheckCircle2, FileText, Settings,
-  ChevronRight, ChevronLeft, DollarSign, BarChart3, Ticket, FileCheck, Eye, Edit3, ExternalLink, MapPin, Globe, Mail, User, Briefcase, Smartphone, ArrowRight, Building2, Phone, Trash2, AlertTriangle, AlertCircle, Calendar, Camera, Printer, Maximize2
+  ChevronRight, ChevronLeft, DollarSign, BarChart3, Ticket, FileCheck, Eye, Edit3, ExternalLink, MapPin, Globe, Mail, User, Briefcase, Smartphone, ArrowRight, Building2, Phone, Trash2, AlertTriangle, AlertCircle, Calendar, Camera, Printer, Maximize2, Type, Image as ImageIcon, Crop, ZoomIn, Mic, Play, Pause, Wand2
 } from 'lucide-react';
 
 interface SalesPanelProps {
@@ -13,6 +13,138 @@ interface SalesPanelProps {
     salespersonName?: string;
     onPartnerUpdate?: () => void;
 }
+
+// --- HELPER COMPONENT: IMAGE CROPPER (21:9) ---
+const ImageCropper = ({ src, onCancel, onCrop }: { src: string, onCancel: () => void, onCrop: (blob: Blob) => void }) => {
+    const [zoom, setZoom] = useState(1);
+    const [offset, setOffset] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const lastMousePos = useRef({ x: 0, y: 0 });
+    const imgRef = useRef<HTMLImageElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+        setIsDragging(true);
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+        lastMousePos.current = { x: clientX, y: clientY };
+    };
+
+    const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
+        if (!isDragging) return;
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+        
+        const deltaX = clientX - lastMousePos.current.x;
+        const deltaY = clientY - lastMousePos.current.y;
+
+        setOffset(prev => ({ x: prev.x + deltaX, y: prev.y + deltaY }));
+        lastMousePos.current = { x: clientX, y: clientY };
+    };
+
+    const handleMouseUp = () => setIsDragging(false);
+
+    const handleCrop = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx || !imgRef.current) return;
+
+        // Output resolution (21:9 high quality)
+        canvas.width = 1680; 
+        canvas.height = 720; 
+
+        // Draw logic simplified for MVP
+        ctx.fillStyle = 'black';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const img = imgRef.current;
+        const nw = img.naturalWidth;
+        const nh = img.naturalHeight;
+        
+        // Calculate scale factor to match "cover" initially
+        const scaleCover = Math.max(canvas.width / nw, canvas.height / nh);
+        const finalScale = scaleCover * zoom;
+
+        const drawWidth = nw * finalScale;
+        const drawHeight = nh * finalScale;
+
+        // Assuming center alignment
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        // Ratio for offset mapping
+        const uiWidth = containerRef.current?.clientWidth || 600;
+        const ratio = canvas.width / uiWidth;
+
+        const finalX = centerX - (drawWidth / 2) + (offset.x * ratio);
+        const finalY = centerY - (drawHeight / 2) + (offset.y * ratio);
+
+        ctx.drawImage(img, finalX, finalY, drawWidth, drawHeight);
+
+        canvas.toBlob((blob) => {
+            if (blob) onCrop(blob);
+        }, 'image/webp', 0.9);
+    };
+
+    return (
+        <div className="fixed inset-0 z-[200] bg-slate-900/95 flex flex-col items-center justify-center p-4 animate-in fade-in">
+            <h3 className="text-white font-bold text-xl mb-6">Dopasuj Poster Wideo (21:9)</h3>
+            <div 
+                ref={containerRef}
+                className="relative w-full max-w-[800px] aspect-[21/9] bg-black overflow-hidden border-4 border-white/20 rounded-lg cursor-move shadow-2xl"
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onTouchStart={handleMouseDown}
+                onTouchMove={handleMouseMove}
+                onTouchEnd={handleMouseUp}
+            >
+                <img 
+                    ref={imgRef}
+                    src={src} 
+                    alt="Crop" 
+                    className="absolute max-w-none origin-center pointer-events-none select-none"
+                    style={{
+                        top: '50%',
+                        left: '50%',
+                        transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+                        minWidth: '100%',
+                        minHeight: '100%',
+                        width: 'auto',
+                        height: 'auto',
+                        objectFit: 'cover'
+                    }}
+                    draggable={false}
+                />
+                <div className="absolute inset-0 pointer-events-none opacity-30 grid grid-cols-3 grid-rows-3">
+                    <div className="border-r border-white/50"></div>
+                    <div className="border-r border-white/50"></div>
+                    <div></div>
+                    <div className="border-t border-white/50 col-span-3"></div>
+                    <div className="border-t border-white/50 col-span-3"></div>
+                </div>
+            </div>
+            <div className="mt-8 w-full max-w-[600px] flex items-center gap-4 bg-white/10 p-4 rounded-xl backdrop-blur-sm">
+                <ZoomIn className="text-white" size={24} />
+                <input 
+                    type="range" 
+                    min="1" 
+                    max="3" 
+                    step="0.05" 
+                    value={zoom} 
+                    onChange={(e) => setZoom(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                />
+            </div>
+            <div className="mt-8 flex gap-4">
+                <button onClick={onCancel} className="px-8 py-3 rounded-xl font-bold text-white hover:bg-white/10 transition-colors">Anuluj</button>
+                <button onClick={handleCrop} className="px-8 py-3 rounded-xl font-bold bg-blue-600 text-white shadow-xl hover:bg-blue-500 transition-colors flex items-center gap-2"><Crop size={20} /> Przytnij i Zapisz</button>
+            </div>
+        </div>
+    );
+};
+
 
 export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespersonName, onPartnerUpdate }) => {
     const [myPartners, setMyPartners] = useState<Partner[]>([]);
@@ -27,7 +159,7 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [capturedPages, setCapturedPages] = useState<string[]>([]); // Base64 strings for preview
+    const [capturedPages, setCapturedPages] = useState<string[]>([]);
 
     // Contract Viewer State
     const [viewContractUrl, setViewContractUrl] = useState<string | string[] | null>(null);
@@ -43,19 +175,17 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
         name: '',
         genitive: '',
         slug: '',
+        heroHeader: '', 
         email: '',
         phone: '', 
         city: '',
         type: 'Sala Zabaw',
         status: 'BRAK' as 'AKTYWNY' | 'NIEAKTYWNY' | 'BRAK',
         model: 'BRAK' as 'PAKIET' | 'PROWIZJA' | 'BRAK',
-        
-        // Contract Fields
         contractStatus: 'BRAK' as 'PODPISANA' | 'BRAK',
         contractSignedDate: '',
-        contractDuration: 6, // default 6 months
-        contractEndDate: '', // calculated
-
+        contractDuration: 6,
+        contractEndDate: '',
         packetAmount: 0,
         sellPrice: '' as number | '',
         ageGroups: [] as string[]
@@ -63,8 +193,22 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
     
     // File State
     const [logoFile, setLogoFile] = useState<File | null>(null);
-    const [contractFile, setContractFile] = useState<File | null>(null); // Single file upload
+    const [contractFile, setContractFile] = useState<File | null>(null); 
     const [submitting, setSubmitting] = useState(false);
+
+    // --- CROPPER STATE ---
+    const [posterFile, setPosterFile] = useState<File | null>(null);
+    const [cropModalOpen, setCropModalOpen] = useState(false);
+    const [cropImgSrc, setCropImgSrc] = useState<string | null>(null);
+    const [posterBlob, setPosterBlob] = useState<Blob | null>(null);
+    const [posterPreviewUrl, setPosterPreviewUrl] = useState<string | null>(null);
+
+    // --- AUDIO / ELEVENLABS STATE ---
+    const [introText, setIntroText] = useState('');
+    const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+    const [introAudioBlob, setIntroAudioBlob] = useState<Blob | null>(null);
+    const [introAudioUrl, setIntroAudioUrl] = useState<string | null>(null);
+    const audioPlayerRef = useRef<HTMLAudioElement>(null);
 
     // Details View Extra State
     const [addCodesAmount, setAddCodesAmount] = useState<number | ''>('');
@@ -83,7 +227,7 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
         }
     }, [notification]);
 
-    // Calculate End Date whenever Signed Date or Duration changes
+    // Calculate End Date
     useEffect(() => {
         if (formData.contractStatus === 'PODPISANA' && formData.contractSignedDate) {
             const signed = new Date(formData.contractSignedDate);
@@ -96,6 +240,15 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
             setFormData(prev => ({ ...prev, contractEndDate: '' }));
         }
     }, [formData.contractSignedDate, formData.contractDuration, formData.contractStatus]);
+
+    // Cleanup audio URL on unmount/change
+    useEffect(() => {
+        return () => {
+            if (introAudioUrl && introAudioUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(introAudioUrl);
+            }
+        };
+    }, [introAudioUrl]);
 
     // Camera Handling
     const startCamera = async () => {
@@ -168,7 +321,6 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
         setLoading(false);
     };
 
-    // --- HELPER: Base64 to Blob ---
     const base64ToBlob = (base64: string) => {
         const arr = base64.split(',');
         const mime = arr[0].match(/:(.*?);/)![1];
@@ -179,6 +331,63 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
             u8arr[n] = bstr.charCodeAt(n);
         }
         return new Blob([u8arr], { type: mime });
+    };
+
+    // --- ELEVENLABS GENERATION ---
+    const handleGenerateAudio = async () => {
+        if (!introText.trim()) {
+            showToast('Wpisz tekst do wygenerowania!', 'error');
+            return;
+        }
+
+        const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
+        if (!apiKey) {
+            showToast('Brak klucza API ElevenLabs (VITE_ELEVENLABS_API_KEY)', 'error');
+            return;
+        }
+
+        setIsGeneratingAudio(true);
+        try {
+            // Rachel Voice ID: 21m00Tcm4TlvDq8ikWAM
+            // Mimi (Childish): 21m00Tcm4TlvDq8ikWAM (Actually Rachel is better for pro intro)
+            // Let's use 'Glinda' or a standard pleasant voice. 
+            // Using standard 'Rachel' for now.
+            const voiceId = '21m00Tcm4TlvDq8ikWAM'; 
+            
+            const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'audio/mpeg',
+                    'Content-Type': 'application/json',
+                    'xi-api-key': apiKey
+                },
+                body: JSON.stringify({
+                    text: introText,
+                    model_id: "eleven_multilingual_v2",
+                    voice_settings: {
+                        stability: 0.5,
+                        similarity_boost: 0.75
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail?.message || 'Błąd API ElevenLabs');
+            }
+
+            const blob = await response.blob();
+            setIntroAudioBlob(blob);
+            const url = URL.createObjectURL(blob);
+            setIntroAudioUrl(url);
+            showToast('Audio wygenerowane pomyślnie!', 'success');
+
+        } catch (error: any) {
+            console.error(error);
+            showToast(`Błąd generowania: ${error.message}`, 'error');
+        } finally {
+            setIsGeneratingAudio(false);
+        }
     };
 
     // --- FORM HANDLERS ---
@@ -196,6 +405,7 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                 name: partner.PartnerName,
                 genitive: partner.PartnerNameGenitive || '',
                 slug: partner.Slug,
+                heroHeader: partner.HeroHeader || '', 
                 email: partner.contact_email || '',
                 phone: partner.contact_number || '',
                 city: partner.Miasto || '',
@@ -210,18 +420,28 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                 sellPrice: partner.SellPrice || '',
                 ageGroups: loadedAgeGroups
             });
+            // Intro Init
+            setIntroText(''); 
+            setIntroAudioBlob(null);
+            setIntroAudioUrl(partner.IntroUrl || null); // Load existing URL if available
+            
             setSelectedPartner(partner);
         } else {
             setFormData({
-                name: '', genitive: '', slug: '', email: '', phone: '', city: '',
+                name: '', genitive: '', slug: '', heroHeader: '', email: '', phone: '', city: '',
                 type: 'Sala Zabaw', status: 'BRAK', model: 'BRAK',
                 contractStatus: 'BRAK', contractSignedDate: '', contractDuration: 6, contractEndDate: '',
                 packetAmount: 0, sellPrice: '', ageGroups: []
             });
+            setIntroText('');
+            setIntroAudioBlob(null);
+            setIntroAudioUrl(null);
             setSelectedPartner(null);
         }
         setLogoFile(null);
         setContractFile(null);
+        setPosterBlob(null);
+        setPosterPreviewUrl(null);
         setCapturedPages([]);
         setMode('FORM');
     };
@@ -249,6 +469,26 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
         });
     };
 
+    // --- NEW: Poster Handling ---
+    const handlePosterSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.addEventListener('load', () => {
+                setCropImgSrc(reader.result as string);
+                setCropModalOpen(true);
+            });
+            reader.readAsDataURL(file);
+            setPosterFile(file); 
+        }
+    };
+
+    const handlePosterCropped = (blob: Blob) => {
+        setPosterBlob(blob);
+        setPosterPreviewUrl(URL.createObjectURL(blob));
+        setCropModalOpen(false);
+    };
+
     const handleSoftDelete = async () => {
         if (!selectedPartner) return;
         if (!confirm(`Czy na pewno chcesz dezaktywować partnera "${selectedPartner.PartnerName}"? Zostanie on ukryty.`)) return;
@@ -267,7 +507,6 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
             setMode('LIST');
             fetchMyPartners();
             
-            // Notify parent to refresh global data
             if (onPartnerUpdate) onPartnerUpdate();
 
         } catch (err: any) {
@@ -298,11 +537,13 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
             };
 
             const cityFolder = formData.city ? sanitizeForStorage(formData.city.trim()) : 'unknown';
-            const slugFolder = formData.slug; // Use Slug as unique folder
+            const slugFolder = formData.slug; 
             const basePath = `Partners/${cityFolder}/${slugFolder}`;
             
             let logoUrl = selectedPartner?.LogoUrl || null;
+            let photoUrl = selectedPartner?.PhotoUrl || null; 
             let contractUrl = selectedPartner?.UmowaUrl || null;
+            let introUrl = selectedPartner?.IntroUrl || null;
 
             // 1. Upload Logo
             if (logoFile) {
@@ -311,11 +552,28 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                 const { error: uploadError } = await supabase.storage.from('PartnersApp').upload(path, logoFile, { upsert: true });
                 if (uploadError) throw uploadError;
                 const { data: publicUrl } = supabase.storage.from('PartnersApp').getPublicUrl(path);
-                // Force refresh cache by adding timestamp
                 logoUrl = `${publicUrl.publicUrl}?t=${Date.now()}`;
             }
 
-            // 2. Upload Contract (Method A: File)
+            // 2. Upload Cropped Poster
+            if (posterBlob) {
+                const path = `${basePath}/Poster_21_9.webp`;
+                const { error: uploadError } = await supabase.storage.from('PartnersApp').upload(path, posterBlob, { upsert: true, contentType: 'image/webp' });
+                if (uploadError) throw uploadError;
+                const { data: publicUrl } = supabase.storage.from('PartnersApp').getPublicUrl(path);
+                photoUrl = `${publicUrl.publicUrl}?t=${Date.now()}`;
+            }
+
+            // 3. Upload Intro Audio (NEW)
+            if (introAudioBlob) {
+                const path = `${basePath}/Intro_${slugFolder}.mp3`;
+                const { error: uploadError } = await supabase.storage.from('PartnersApp').upload(path, introAudioBlob, { upsert: true, contentType: 'audio/mpeg' });
+                if (uploadError) throw uploadError;
+                const { data: publicUrl } = supabase.storage.from('PartnersApp').getPublicUrl(path);
+                introUrl = `${publicUrl.publicUrl}?t=${Date.now()}`;
+            }
+
+            // 4. Upload Contract (Method A: File)
             if (contractFile) {
                 const ext = contractFile.name.split('.').pop();
                 const path = `${basePath}/${slugFolder.toUpperCase()}_UMOWA.${ext}`;
@@ -325,7 +583,7 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                 contractUrl = `${publicUrl.publicUrl}?t=${Date.now()}`;
             }
 
-            // 3. Upload Contract (Method B: Camera Pages)
+            // 5. Upload Contract (Method B: Camera Pages)
             if (capturedPages.length > 0) {
                 const uploadedPagesUrls: string[] = [];
                 for (let i = 0; i < capturedPages.length; i++) {
@@ -340,7 +598,6 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                     const { data: publicUrl } = supabase.storage.from('PartnersApp').getPublicUrl(path);
                     uploadedPagesUrls.push(`${publicUrl.publicUrl}?t=${Date.now()}`);
                 }
-                // Save as JSON string if multiple, or keep logic simple
                 contractUrl = JSON.stringify(uploadedPagesUrls);
             }
 
@@ -349,6 +606,7 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                 PartnerName: formData.name,
                 PartnerNameGenitive: formData.genitive || null,
                 Slug: formData.slug,
+                HeroHeader: formData.heroHeader || null, 
                 contact_email: formData.email,
                 contact_number: formData.phone || null, 
                 PartnerType: formData.type,
@@ -357,6 +615,8 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                 Model: formData.model,
                 Miasto: formData.city,
                 LogoUrl: logoUrl,
+                PhotoUrl: photoUrl, 
+                IntroUrl: introUrl, // Save Audio URL
                 UmowaUrl: contractUrl,
                 SprzedazIlosc: formData.model === 'PAKIET' ? formData.packetAmount : (selectedPartner?.SprzedazIlosc || 0),
                 SellPrice: formData.model === 'PROWIZJA' && formData.sellPrice !== '' ? Number(formData.sellPrice) : (selectedPartner?.SellPrice || null),
@@ -427,7 +687,6 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
     const parseContractUrl = (url: string | null): string[] => {
         if (!url) return [];
         try {
-            // Check if it's a JSON array string
             if (url.trim().startsWith('[')) {
                 return JSON.parse(url);
             }
@@ -506,7 +765,6 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
         <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in relative">
              {renderToast()}
              
-             {/* CONTRACT PREVIEW MODAL */}
              {viewContractUrl && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
                     <div className="bg-white rounded-[2rem] w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative">
@@ -580,7 +838,6 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                                 <p className="text-sm text-slate-500 font-medium truncate">{p.contact_email}</p>
                             </div>
                             
-                            {/* NEW: Contract Info on Tile with Preview Button */}
                             <div className="mt-4 pt-4 border-t border-slate-50 flex justify-between items-center text-xs">
                                 <div className="flex items-center gap-2">
                                     <span className="font-bold text-slate-400 uppercase">Umowa:</span>
@@ -625,7 +882,14 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
         <div className="max-w-2xl mx-auto animate-in slide-in-from-bottom-4 bg-white p-8 rounded-[2rem] shadow-xl border border-slate-100 relative">
              {renderToast()}
              
-             {/* CAMERA MODAL */}
+             {cropModalOpen && cropImgSrc && (
+                 <ImageCropper 
+                    src={cropImgSrc}
+                    onCancel={() => setCropModalOpen(false)}
+                    onCrop={handlePosterCropped}
+                 />
+             )}
+
              {isCameraOpen && (
                 <div className="fixed inset-0 z-[100] bg-black flex flex-col">
                     <div className="relative flex-1 bg-black">
@@ -659,6 +923,42 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
              <h3 className="text-2xl font-black text-slate-900 mb-6">{selectedPartner ? 'Edytuj Partnera' : 'Nowy Partner'}</h3>
              
              <form onSubmit={handleSavePartner} className="space-y-6" noValidate>
+                {/* Intro Audio Section - NEW */}
+                <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-6 space-y-4">
+                    <h4 className="font-black text-indigo-900 text-sm uppercase flex items-center gap-2">
+                        <Mic size={14} /> Intro Audio (Runtime Composing)
+                    </h4>
+                    <p className="text-xs text-indigo-700/80 leading-relaxed">
+                        Wpisz tekst, który lektor (ElevenLabs) przeczyta jako intro. To nagranie zostanie automatycznie nałożone na wideo w aplikacji partnera.
+                    </p>
+                    <div className="flex gap-2">
+                        <input 
+                            type="text" 
+                            value={introText} 
+                            onChange={(e) => setIntroText(e.target.value)}
+                            placeholder="np. Niezapomniana pamiątka z Krainy Zabawy..."
+                            className="flex-1 px-4 py-3 rounded-xl border border-indigo-200 focus:outline-none focus:border-indigo-500 font-medium text-sm"
+                        />
+                        <button 
+                            type="button" 
+                            onClick={handleGenerateAudio}
+                            disabled={isGeneratingAudio}
+                            className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                        >
+                            {isGeneratingAudio ? <Loader2 className="animate-spin" size={16}/> : <Wand2 size={16} />}
+                            Generuj
+                        </button>
+                    </div>
+                    
+                    {/* Audio Preview */}
+                    {(introAudioUrl) && (
+                        <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-indigo-100">
+                            <audio ref={audioPlayerRef} src={introAudioUrl} controls className="w-full h-8" />
+                            {introAudioBlob && <span className="text-[10px] font-bold text-green-600 uppercase tracking-wide">Gotowe do zapisu</span>}
+                        </div>
+                    )}
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nazwa Firmy <span className="text-red-500">*</span></label>
@@ -673,6 +973,24 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                 <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nazwa w dopełniaczu (dla nagłówka)</label>
                     <input type="text" value={formData.genitive} onChange={e => setFormData({...formData, genitive: e.target.value})} className="input-std" placeholder="np. Krainy Zabawy" />
+                </div>
+
+                {/* HERO HEADER CUSTOMIZATION */}
+                <div className="space-y-2 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                    <div className="flex justify-between items-center">
+                        <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-1">
+                            <Type size={12} /> Nagłówek Hero (Opcjonalny)
+                        </label>
+                        <div className="text-[9px] text-blue-400 font-bold bg-white px-2 py-0.5 rounded-full border border-blue-100">
+                            Użyj {'{tekst}'} dla koloru
+                        </div>
+                    </div>
+                    <textarea 
+                        value={formData.heroHeader} 
+                        onChange={e => setFormData({...formData, heroHeader: e.target.value})} 
+                        className="input-std min-h-[80px] text-sm leading-relaxed" 
+                        placeholder={`Domyślnie:\nTwoje dziecko {bohaterem}\nniezwykłej historii w {${formData.genitive || formData.name || '...'}}`}
+                    />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -797,7 +1115,7 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                      <div className="space-y-2">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Logo</label>
                         <div className="flex gap-4 items-center">
@@ -817,45 +1135,71 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                         </div>
                      </div>
 
+                     {/* POSTER VIDEO SECTION (21:9) */}
                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Umowa (Dokument)</label>
-                        <div className="flex flex-col gap-2">
-                            {/* Upload Buttons Row */}
-                            <div className="flex gap-3">
-                                <div className="flex-1 border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:bg-slate-50 transition-colors relative flex flex-col items-center justify-center h-28">
-                                    <input type="file" accept=".pdf,image/*" onChange={e => { setContractFile(e.target.files?.[0] || null); setCapturedPages([]); }} className="absolute inset-0 opacity-0 cursor-pointer" />
-                                    <div className="flex flex-col items-center gap-1">
-                                        {contractFile ? <CheckCircle2 className="text-green-500" /> : <Upload className="text-slate-300" />}
-                                        <span className="text-xs font-bold text-slate-500 truncate max-w-full">{contractFile ? contractFile.name : 'Wgraj plik (PDF/JPG)'}</span>
-                                    </div>
-                                </div>
-                                <button type="button" onClick={startCamera} className="w-28 border-2 border-slate-200 rounded-xl p-4 flex flex-col items-center justify-center gap-2 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-all text-slate-400 font-bold h-28">
-                                    <Camera size={24} />
-                                    <span className="text-[10px] uppercase text-center">Użyj Aparatu</span>
-                                </button>
-                            </div>
-
-                            {/* Status Info Row */}
-                            {(selectedPartner?.UmowaUrl || capturedPages.length > 0) && (
-                                <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <CheckCircle2 size={16} className="text-green-500" />
-                                        <span className="text-xs font-bold text-slate-600">
-                                            {capturedPages.length > 0 
-                                                ? `Zrobiono ${capturedPages.length} zdjęć` 
-                                                : (selectedPartner?.UmowaUrl ? 'Plik wgrany na serwer' : '')
-                                            }
-                                        </span>
-                                    </div>
-                                    {selectedPartner?.UmowaUrl && !capturedPages.length && (
-                                        <a href={Array.isArray(parseContractUrl(selectedPartner.UmowaUrl)) ? parseContractUrl(selectedPartner.UmowaUrl)[0] : selectedPartner.UmowaUrl as string} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-blue-600 hover:underline">
-                                            Podgląd obecnej
-                                        </a>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Poster Wideo (21:9)</label>
+                        <div className="flex gap-4 items-center">
+                            <div className="flex-1 border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:bg-slate-50 transition-colors relative h-24 flex flex-col items-center justify-center overflow-hidden">
+                                <input type="file" accept="image/*" onChange={handlePosterSelect} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
+                                <div className="flex flex-col items-center gap-1">
+                                    {posterBlob ? (
+                                        <div className="relative w-full h-full flex items-center justify-center">
+                                            {posterPreviewUrl && <img src={posterPreviewUrl} className="max-h-16 object-cover rounded shadow-sm border border-slate-200" />}
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/20 text-white font-bold text-xs"><CheckCircle2 className="mr-1"/> Gotowe</div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <ImageIcon className="text-slate-300" />
+                                            <span className="text-xs font-bold text-slate-500 truncate max-w-full">Wybierz i przytnij</span>
+                                        </>
                                     )}
+                                </div>
+                            </div>
+                            {selectedPartner?.PhotoUrl && !posterBlob && (
+                                <div className="w-24 h-24 rounded-xl border border-slate-200 p-1 bg-white flex flex-col items-center justify-center text-center overflow-hidden">
+                                    <img src={selectedPartner.PhotoUrl} alt="Poster" className="w-full h-full object-cover" />
                                 </div>
                             )}
                         </div>
                      </div>
+                </div>
+
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Umowa (Dokument)</label>
+                    <div className="flex flex-col gap-2">
+                        <div className="flex gap-3">
+                            <div className="flex-1 border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:bg-slate-50 transition-colors relative flex flex-col items-center justify-center h-28">
+                                <input type="file" accept=".pdf,image/*" onChange={e => { setContractFile(e.target.files?.[0] || null); setCapturedPages([]); }} className="absolute inset-0 opacity-0 cursor-pointer" />
+                                <div className="flex flex-col items-center gap-1">
+                                    {contractFile ? <CheckCircle2 className="text-green-500" /> : <Upload className="text-slate-300" />}
+                                    <span className="text-xs font-bold text-slate-500 truncate max-w-full">{contractFile ? contractFile.name : 'Wgraj plik (PDF/JPG)'}</span>
+                                </div>
+                            </div>
+                            <button type="button" onClick={startCamera} className="w-28 border-2 border-slate-200 rounded-xl p-4 flex flex-col items-center justify-center gap-2 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-all text-slate-400 font-bold h-28">
+                                <Camera size={24} />
+                                <span className="text-[10px] uppercase text-center">Użyj Aparatu</span>
+                            </button>
+                        </div>
+
+                        {(selectedPartner?.UmowaUrl || capturedPages.length > 0) && (
+                            <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <CheckCircle2 size={16} className="text-green-500" />
+                                    <span className="text-xs font-bold text-slate-600">
+                                        {capturedPages.length > 0 
+                                            ? `Zrobiono ${capturedPages.length} zdjęć` 
+                                            : (selectedPartner?.UmowaUrl ? 'Plik wgrany na serwer' : '')
+                                        }
+                                    </span>
+                                </div>
+                                {selectedPartner?.UmowaUrl && !capturedPages.length && (
+                                    <a href={Array.isArray(parseContractUrl(selectedPartner.UmowaUrl)) ? parseContractUrl(selectedPartner.UmowaUrl)[0] : selectedPartner.UmowaUrl as string} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-blue-600 hover:underline">
+                                        Podgląd obecnej
+                                    </a>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="flex gap-4 pt-4 border-t border-slate-100">
@@ -1011,6 +1355,8 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
 
                             <InfoRow icon={<Settings size={18}/>} label="Grupy Wiekowe" value={displayAgeGroups} isList />
                             <InfoRow icon={<Upload size={18}/>} label="Logo" value={selectedPartner.LogoUrl} isFile />
+                            <InfoRow icon={<ImageIcon size={18}/>} label="Poster (21:9)" value={selectedPartner.PhotoUrl} isFile />
+                            <InfoRow icon={<Mic size={18}/>} label="Intro Audio" value={selectedPartner.IntroUrl} isFile />
                             <InfoRow icon={<FileText size={18}/>} label="Plik Umowy" value={selectedPartner.UmowaUrl} isFile />
                         </div>
                     </div>
