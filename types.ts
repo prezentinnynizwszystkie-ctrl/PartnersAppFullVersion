@@ -34,7 +34,9 @@ export interface Partner {
   SprzedazWartosc: number | null;
   Slug: string;
   LogoUrl: string | null;
-  PhotoUrl?: string | null; // Zdjęcie obiektu/partnera
+  PhotoUrl?: string | null; // Zdjęcie obiektu/partnera (Poster)
+  IntroUrl?: string | null; // URL do pliku MP3 z Intro
+  HeroHeader?: string | null; // Nagłówek w sekcji Hero
   Theme: ThemeConfig | null; // JSONB
   PartnerAgeGroups?: { AgeGroups: { AgeGroup: string } }[];
 }
