@@ -9,14 +9,18 @@ import PartnerLanding from './components/PartnerLanding';
 import ArticleView from './components/ArticleView';
 import GeneratedTale from './components/GeneratedTale';
 import OfferB2BApp from './OfferB2B/App';
+import { VersionChecker } from './components/VersionChecker';
 
 const App: React.FC = () => {
   return (
     <AuthProvider>
       <div className="relative">
+        {/* Auto-Updater Banner */}
+        <VersionChecker />
+
         {/* Debug Version Indicator - Visible in bottom right */}
-        <div className="fixed bottom-1 right-1 z-[9999] bg-black/10 text-[10px] text-slate-400 px-1 pointer-events-none">
-          Build v2.1 (Cache-Bust)
+        <div className="fixed bottom-1 right-1 z-[9998] bg-black/10 text-[10px] text-slate-400 px-1 pointer-events-none">
+          System v2.2 (Live)
         </div>
         
         <HashRouter>

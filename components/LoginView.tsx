@@ -54,7 +54,7 @@ const LoginView: React.FC = () => {
         {/* Header */}
         <div className="p-8 bg-slate-900 text-white text-center">
             <h1 className="text-3xl font-display font-black mb-2">Panel Logowania</h1>
-            <p className="text-slate-400 text-sm font-medium">MultiBajka Experience v2.0</p>
+            <p className="text-slate-400 text-sm font-medium">MultiBajka Experience v2.2</p>
         </div>
 
         <div className="p-8 space-y-8">

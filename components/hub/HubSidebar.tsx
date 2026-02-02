@@ -33,6 +33,7 @@ export const HubSidebar: React.FC<HubSidebarProps> = ({
                     <h1 className="text-2xl font-display font-black tracking-tight">MultiBajka<span className="text-blue-500">.</span></h1>
                     <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">
                         {role === 'ADMIN' ? 'Admin Panel' : role === 'HANDLOWIEC' ? 'Handlowiec' : 'Strefa Partnera'}
+                        <span className="text-blue-500 ml-1">v2.2</span>
                         {!session && <span className="text-yellow-500 ml-1">(DEV)</span>}
                     </p>
                 </div>
