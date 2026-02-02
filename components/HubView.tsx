@@ -1,17 +1,17 @@
 
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { supabase } from '../utils/supabaseClient.ts';
-import { useAuth } from '../contexts/AuthContext.tsx';
-import { Partner, Handlowiec, UserRole } from '../types.ts';
+import { supabase } from '@/utils/supabaseClient';
+import { useAuth } from '@/contexts/AuthContext';
+import { Partner, Handlowiec, UserRole } from '@/types';
 import { Loader2 } from 'lucide-react';
 
-// Imported modular components
-import { HubSidebar } from './hub/HubSidebar.tsx';
-import { AdminView } from './hub/AdminView.tsx';
-import { SalesPanel } from './hub/SalesPanel.tsx';
-import { PartnerDashboard } from './hub/PartnerDashboard.tsx';
-import { SalesInstructions } from './hub/SalesInstructions.tsx';
+// Imported modular components - local relative imports are fine here if files are in same folder
+import { HubSidebar } from './hub/HubSidebar';
+import { AdminView } from './hub/AdminView';
+import { SalesPanel } from './hub/SalesPanel';
+import { PartnerDashboard } from './hub/PartnerDashboard';
+import { SalesInstructions } from './hub/SalesInstructions';
 
 const HubView: React.FC = () => {
   const location = useLocation();

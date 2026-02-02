@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { UserRole } from '../../types';
+import { UserRole } from '@/types';
 import { Link } from 'react-router-dom';
 import { LayoutDashboard, Users, UserCircle, LogOut, FileText, ArrowRight, Receipt, Settings, BookOpen } from 'lucide-react';
 

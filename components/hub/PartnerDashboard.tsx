@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Partner } from '../../types';
+import { Partner } from '@/types';
 import { Link } from 'react-router-dom';
 import { PartnerSettlements } from './PartnerSettlements';
 import { PartnerModifications } from './PartnerModifications';

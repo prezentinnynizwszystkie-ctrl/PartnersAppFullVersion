@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Partner, Handlowiec } from '../../types';
+import { Partner, Handlowiec } from '@/types';
 import { ChevronRight, Briefcase, ArrowRight, Search, MapPin, User, Wallet, CheckCircle2, XCircle, AlertCircle, Smartphone, ExternalLink, Rocket } from 'lucide-react';
 
 interface AdminViewProps {
