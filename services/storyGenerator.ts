@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { supabase } from "../utils/supabaseClient";
 
@@ -10,43 +11,11 @@ interface StoryParams {
   guestList: string[];
 }
 
-// Bezpieczna funkcja do pobierania klucza API
-const getApiKey = (): string | undefined => {
-  let key = '';
-
-  // 1. Sprawdź Vite
-  try {
-    // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-        // @ts-ignore
-        key = import.meta.env.VITE_API_KEY || '';
-    }
-  } catch (e) {}
-
-  if (key) return key;
-
-  // 2. Sprawdź Process
-  try {
-    if (typeof process !== 'undefined' && process.env) {
-       key = process.env.API_KEY || process.env.VITE_API_KEY || process.env.REACT_APP_API_KEY || '';
-    }
-  } catch (e) {}
-
-  return key || undefined;
-}
-
 export const generatePersonalizedStory = async (
   storyId: number, 
   params: StoryParams
 ): Promise<string | null> => {
   console.log("StoryGenerator: Rozpoczynam generowanie dla StoryId:", storyId);
-
-  const apiKey = getApiKey();
-  
-  if (!apiKey) {
-    console.error("CRITICAL: Brak klucza API (VITE_API_KEY). Ustaw go w panelu Vercel lub pliku .env");
-    return null;
-  }
 
   try {
     // 2. Pobranie szablonu z Supabase
@@ -71,7 +40,7 @@ export const generatePersonalizedStory = async (
     }
 
     // 3. Konfiguracja Gemini
-    const ai = new GoogleGenAI({ apiKey: apiKey });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     // Przygotowanie danych do promptu
     const replacements = {
