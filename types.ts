@@ -12,6 +12,7 @@ export interface Partner {
   PartnerName: string;
   PartnerNameGenitive?: string | null; // Nazwa w dopełniaczu (np. Nibylandii)
   contact_email?: string | null;
+  contact_number?: string | null; // NOWE: Numer telefonu
   IdOpiekuna: number | null;
   Opiekun: any | null; // JSONB
   ContactPerson: any | null; // JSONB
