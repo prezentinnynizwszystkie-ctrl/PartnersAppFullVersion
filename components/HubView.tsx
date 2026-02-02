@@ -42,8 +42,7 @@ const HubView: React.FC = () => {
   // Partner Tabs State
   const [activeTab, setActiveTab] = useState<'OFFER' | 'SETTLEMENTS' | 'MODS'>('OFFER');
 
-  useEffect(() => {
-    const initialize = async () => {
+  const fetchGlobalData = async () => {
         setLoading(true);
         try {
             // Admin always needs this data
@@ -73,14 +72,14 @@ const HubView: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+  };
 
+  useEffect(() => {
     if (!session && !location.state?.mockRole) {
         navigate('/');
     } else {
-        initialize();
+        fetchGlobalData();
     }
-
   }, [session, profile, role, location.state, navigate]);
 
   const handleLogout = async () => {
@@ -153,13 +152,20 @@ const HubView: React.FC = () => {
                              </p>
                          </div>
                          <button 
-                            onClick={() => setViewingSalesperson(null)}
+                            onClick={() => {
+                                setViewingSalesperson(null);
+                                fetchGlobalData(); // REFRESH DATA ON CLOSE
+                            }}
                             className="text-xs font-bold bg-slate-200 hover:bg-slate-300 px-3 py-1 rounded text-slate-600"
                          >
                              Zamknij podgląd
                          </button>
                     </div>
-                    <SalesPanel salespersonId={viewingSalesperson.id} salespersonName={`${viewingSalesperson.imie} ${viewingSalesperson.nazwisko}`} />
+                    <SalesPanel 
+                        salespersonId={viewingSalesperson.id} 
+                        salespersonName={`${viewingSalesperson.imie} ${viewingSalesperson.nazwisko}`} 
+                        onPartnerUpdate={fetchGlobalData} // REFRESH DATA ON CHANGE
+                    />
                 </div>
             )}
 

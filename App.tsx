@@ -20,7 +20,7 @@ const App: React.FC = () => {
 
         {/* Debug Version Indicator - Visible in bottom right */}
         <div className="fixed bottom-1 right-1 z-[9998] bg-black/10 text-[10px] text-slate-400 px-1 pointer-events-none">
-          System v2.4 (Live)
+          System v2.5 (Live)
         </div>
         
         <HashRouter>

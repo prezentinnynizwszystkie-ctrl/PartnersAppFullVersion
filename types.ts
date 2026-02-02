@@ -12,15 +12,21 @@ export interface Partner {
   PartnerName: string;
   PartnerNameGenitive?: string | null; // Nazwa w dopełniaczu (np. Nibylandii)
   contact_email?: string | null;
-  contact_number?: string | null; // NOWE: Numer telefonu
+  contact_number?: string | null;
   IdOpiekuna: number | null;
   Opiekun: any | null; // JSONB
   ContactPerson: any | null; // JSONB
   Informacje: any | null; // JSONB
   Status: 'AKTYWNY' | 'NIEAKTYWNY' | 'BRAK';
   Model: 'PROWIZJA' | 'PAKIET' | 'BRAK';
-  Miasto?: string | null; // NOWE
-  UmowaUrl?: string | null; // NOWE
+  Miasto?: string | null;
+  UmowaUrl?: string | null;
+  // Pola Umowy
+  ContractStatus?: 'PODPISANA' | 'BRAK' | null;
+  ContractSignedDate?: string | null;
+  ContractDuration?: number | null; // w miesiącach
+  ContractEndDate?: string | null;
+  
   SellPrice: number | null;
   Prowizja: number | null;
   ProwizjaObsluga: number | null;
@@ -30,8 +36,7 @@ export interface Partner {
   LogoUrl: string | null;
   PhotoUrl?: string | null; // Zdjęcie obiektu/partnera
   Theme: ThemeConfig | null; // JSONB
-  // AgeGroups usunięte - teraz pobieramy to przez relację
-  PartnerAgeGroups?: { AgeGroups: { AgeGroup: string } }[]; // Opcjonalne pole pomocnicze przy pobieraniu z JOIN
+  PartnerAgeGroups?: { AgeGroups: { AgeGroup: string } }[];
 }
 
 export interface Handlowiec {

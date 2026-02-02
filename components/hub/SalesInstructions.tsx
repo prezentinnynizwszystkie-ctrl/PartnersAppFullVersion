@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { MonitorPlay, CheckCircle2, AlertTriangle, HelpCircle, FileText, Settings, Upload, Rocket } from 'lucide-react';
+import { MonitorPlay, CheckCircle2, AlertTriangle, HelpCircle, FileText, Settings, Upload, Rocket, Camera, FileCheck } from 'lucide-react';
 
 export const SalesInstructions: React.FC = () => {
     return (
@@ -63,13 +63,49 @@ export const SalesInstructions: React.FC = () => {
                                 desc="Uzupełnij numer telefonu i e-mail partnera. To kluczowe, by system (w przyszłości) mógł wysyłać powiadomienia o kończących się kodach czy fakturach."
                             />
                             <Step 
-                                num="5" title="Załącz Umowę" 
-                                desc="Gdy partner podpisze papierową umowę, zrób jej zdjęcie lub skan i wgraj w polu 'Umowa'. To nasz dupochron i podstawa do rozliczeń."
+                                num="5" title="Załącz Umowę (NOWOŚĆ)" 
+                                desc="Możesz wgrać plik PDF/JPG lub użyć nowej funkcji 'Użyj Aparatu'. Pozwala ona zrobić zdjęcia każdej strony umowy bezpośrednio w panelu. System automatycznie zapisze je jako komplet."
                             />
                             <Step 
                                 num="6" title="Dobierz Grupy Wiekowe" 
                                 desc="To krytyczny punkt (opis poniżej). Nie zaznaczaj wszystkich jak leci! Zapytaj partnera o jego klientelę."
                             />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Nowa Sekcja o Umowach */}
+                <div className="bg-slate-50 border border-slate-200 rounded-[2.5rem] p-8 md:p-12 shadow-sm">
+                    <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-3">
+                        <FileCheck className="text-blue-600" size={28} />
+                        Jak poprawnie zarchiwizować umowę?
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                            <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Camera size={18} className="text-blue-500" /> Opcja 1: Aparat w Panelu (Szybka)</h4>
+                            <p className="text-sm text-slate-600 leading-relaxed mb-4">
+                                W oknie edycji partnera kliknij przycisk <strong>"Użyj Aparatu"</strong>.
+                            </p>
+                            <ul className="text-sm text-slate-600 space-y-2 list-disc pl-4">
+                                <li>Otworzy się podgląd z kamery Twojego urządzenia.</li>
+                                <li>Zrób zdjęcie pierwszej strony.</li>
+                                <li>Przewróć kartkę i zrób zdjęcie drugiej strony (itd.).</li>
+                                <li>Kliknij "Gotowe". Zdjęcia zostaną zapisane jako komplet.</li>
+                            </ul>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                            <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Upload size={18} className="text-red-500" /> Opcja 2: Adobe Scan (Profesjonalna)</h4>
+                            <p className="text-sm text-slate-600 leading-relaxed mb-4">
+                                Jeśli chcesz, aby umowa była idealnym, czytelnym PDF-em, polecamy darmową aplikację <strong>Adobe Scan</strong>.
+                            </p>
+                            <ul className="text-sm text-slate-600 space-y-2 list-disc pl-4">
+                                <li>Zeskanuj wszystkie strony w aplikacji.</li>
+                                <li>Aplikacja automatycznie je wyprostuje i połączy w jeden plik PDF.</li>
+                                <li>Wyślij plik sobie na maila/dysk.</li>
+                                <li>Wgraj ten plik używając przycisku "Wgraj plik" w panelu.</li>
+                            </ul>
                         </div>
                     </div>
                 </div>

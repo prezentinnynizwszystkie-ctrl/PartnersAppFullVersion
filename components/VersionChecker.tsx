@@ -4,7 +4,7 @@ import { RefreshCw, ArrowRight } from 'lucide-react';
 
 // TA WARTOŚĆ MUSI BYĆ RĘCZNIE ZMIENIANA W KODZIE PRZY KAŻDYM DUŻYM DEPLOYU
 // Aby pasowała do wartości w pliku public/version.json
-const CURRENT_APP_VERSION = "2.4";
+const CURRENT_APP_VERSION = "2.5";
 
 export const VersionChecker: React.FC = () => {
   const [updateAvailable, setUpdateAvailable] = useState(false);
