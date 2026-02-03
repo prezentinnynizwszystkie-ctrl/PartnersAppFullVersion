@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
-import { Lock, Loader2, ArrowRight } from 'lucide-react';
+import { Lock, Loader2, ArrowRight, Check } from 'lucide-react';
 
 const LoginView: React.FC = () => {
   const navigate = useNavigate();
@@ -12,6 +12,8 @@ const LoginView: React.FC = () => {
   // Local UI State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // Domyślnie zaznaczone = LocalStorage (standardowe zachowanie)
+  const [keepLoggedIn, setKeepLoggedIn] = useState(true);
   const [error, setError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   
@@ -28,6 +30,21 @@ const LoginView: React.FC = () => {
     setIsLoggingIn(true);
 
     try {
+      // Próba ustawienia trwałości sesji
+      // Opakowana w try/catch, aby błąd persystencji (np. brak dostępu do storage) nie blokował logowania
+      try {
+        if (keepLoggedIn) {
+           // LocalStorage (Domyślne)
+           await supabase.auth.setPersistence(window.localStorage);
+        } else {
+           // SessionStorage (Tylko na czas sesji przeglądarki)
+           await supabase.auth.setPersistence(window.sessionStorage);
+        }
+      } catch (persistError) {
+        console.warn("Nie udało się ustawić trwałości sesji:", persistError);
+        // Kontynuujemy logowanie mimo błędu persystencji
+      }
+
       // REAL SUPABASE LOGIN
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: email,
@@ -42,7 +59,9 @@ const LoginView: React.FC = () => {
       
     } catch (err: any) {
       console.error(err);
-      setError('Błąd logowania. Sprawdź e-mail i hasło.');
+      // Wyświetl konkretny komunikat błędu z Supabase, jeśli dostępny
+      const message = err.message || 'Błąd logowania. Sprawdź e-mail i hasło.';
+      setError(message === 'Invalid login credentials' ? 'Nieprawidłowy e-mail lub hasło.' : message);
       setIsLoggingIn(false);
     }
   };
@@ -87,6 +106,19 @@ const LoginView: React.FC = () => {
                             <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                         </div>
                     </div>
+                </div>
+
+                {/* Keep Logged In Checkbox */}
+                <div 
+                    className="flex items-center gap-3 cursor-pointer group px-2"
+                    onClick={() => setKeepLoggedIn(!keepLoggedIn)}
+                >
+                    <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${keepLoggedIn ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-300 group-hover:border-blue-400'}`}>
+                        {keepLoggedIn && <Check size={16} className="text-white" strokeWidth={3} />}
+                    </div>
+                    <span className={`text-sm font-bold transition-colors ${keepLoggedIn ? 'text-blue-600' : 'text-slate-500 group-hover:text-slate-700'}`}>
+                        Nie wylogowuj mnie przez 20 dni
+                    </span>
                 </div>
 
                 {error && <div className="p-3 bg-red-50 text-red-600 text-sm font-bold rounded-xl text-center">{error}</div>}
