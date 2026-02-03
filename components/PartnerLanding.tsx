@@ -400,7 +400,7 @@ const PartnerLanding: React.FC = () => {
     <div style={dynamicStyle} className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#fccb00] selection:text-black">
       
       {/* 1. SEKCJA HERO (RUNTIME COMPOSING) */}
-      <section className="relative w-full min-h-[85vh] lg:min-h-0 lg:aspect-[21/9] flex items-center justify-center bg-slate-900 z-30 overflow-hidden">
+      <section className="relative w-full min-h-[85vh] lg:min-h-0 lg:aspect-[21/9] flex items-center justify-center bg-slate-900 z-30">
         
         {/* BASE LAYER: Standard Video Loop */}
         <div className="absolute inset-0 overflow-hidden z-0">
