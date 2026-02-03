@@ -129,7 +129,12 @@ export const ProcessingStep: React.FC<ProcessingStepProps> = ({ state, updateSta
                   <Adder index={index} onAdd={handleAddBlock} />
                   
                   <div 
-                    className={`group relative p-4 rounded-xl border-2 transition-all flex gap-4 items-start ${block.type === 'EPISODE' ? 'bg-purple-50 border-purple-200' : ''} ${block.type === 'CHAPTER' ? 'bg-blue-50 border-blue-200 ml-4' : ''} ${block.type === 'LINE' ? 'bg-white border-slate-100 hover:border-indigo-200 ml-8 shadow-sm' : ''} ${block.type === 'BACKGROUND' ? 'bg-pink-50 border-pink-100 ml-8' : ''} ${block.type === 'PAUSE' ? 'bg-amber-50 border-amber-100 ml-8' : ''}`}
+                    className={`group relative p-4 rounded-xl border-2 transition-all flex gap-4 items-start 
+                        ${block.type === 'EPISODE' ? 'bg-purple-50 border-purple-200' : ''} 
+                        ${block.type === 'CHAPTER' ? 'bg-blue-50 border-blue-200 ml-4' : ''} 
+                        ${block.type === 'LINE' ? (block.code?.toUpperCase().startsWith('Z') ? 'bg-amber-50 border-amber-200 ml-8 shadow-sm' : 'bg-white border-slate-100 hover:border-indigo-200 ml-8 shadow-sm') : ''} 
+                        ${block.type === 'BACKGROUND' ? 'bg-pink-50 border-pink-100 ml-8' : ''} 
+                        ${block.type === 'PAUSE' ? 'bg-amber-50 border-amber-100 ml-8' : ''}`}
                     draggable={draggableBlockId === block.id}
                     onDragStart={(e) => { dragItem.current = index; e.dataTransfer.effectAllowed = "move"; }}
                     onDragEnter={() => dragOverItem.current = index}
