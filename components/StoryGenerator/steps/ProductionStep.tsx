@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { GeneratorState, StoryBlock } from '../types';
+import { GeneratorState, StoryBlock, StoryLector } from '../types';
 import { supabase } from '../../../utils/supabaseClient';
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
   ArrowLeft, User, Users, Globe, Save, Loader2, Building2, Lock, 
   CheckCircle2, ImagePlus, X, Image as ImageIcon, Sparkles, 
-  Eye, BookOpen, Music, Clock, Mic2, LayoutList, ChevronRight
+  Eye, BookOpen, Music, Clock, Mic2, LayoutList, ChevronRight, ZoomIn, Code, Database, Terminal, FileJson
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -16,6 +16,179 @@ interface ProductionStepProps {
   onBack: () => void;
   onSave?: () => Promise<boolean>;
 }
+
+// --- HELPERS FOR PREVIEW GENERATION ---
+const getScenarioDSL = (blocks: StoryBlock[]) => {
+    let output = "";
+    let episodeOpen = false;
+    let chapterOpen = false;
+    let bgOpen = false;
+
+    // Detect if we have an episode layer to adjust indentation
+    const hasEpisode = blocks.some(b => b.type === 'EPISODE');
+
+    // Dynamic indentation helpers
+    const getIndent = (level: 'CHAPTER' | 'BACKGROUND' | 'LINE') => {
+        if (level === 'CHAPTER') return hasEpisode ? "    " : "";
+        if (level === 'BACKGROUND') return hasEpisode ? "        " : "    ";
+        if (level === 'LINE') return hasEpisode ? "            " : "        ";
+        return "";
+    };
+
+    const closeBg = () => { if(bgOpen) { output += `${getIndent('BACKGROUND')}End\n`; bgOpen = false; } };
+    const closeChapter = () => { closeBg(); if(chapterOpen) { output += `${getIndent('CHAPTER')}End\n`; chapterOpen = false; } };
+    const closeEpisode = () => { closeChapter(); if(episodeOpen) { output += "End\n"; episodeOpen = false; } };
+
+    blocks.forEach(block => {
+        if (block.type === 'EPISODE') {
+            closeEpisode();
+            output += `Episode:\n`;
+            episodeOpen = true;
+        } else if (block.type === 'CHAPTER') {
+            closeChapter();
+            output += `${getIndent('CHAPTER')}Chapter: ${block.content}\n`;
+            chapterOpen = true;
+        } else if (block.type === 'BACKGROUND') {
+            closeBg();
+            const fadeIn = block.metadata?.fadeIn || '00:00:01';
+            output += `${getIndent('BACKGROUND')}BackgroundSampleLine: Code=${block.content}, FadeIn=${fadeIn}, FadeOut=00:00:02\n`;
+            bgOpen = true;
+        } else if (block.type === 'PAUSE') {
+            const dur = block.metadata?.duration || 2;
+            output += `${getIndent('LINE')}PauseLine: 00:00:0${dur}\n`;
+        } else if (block.type === 'LINE') {
+            const rawCode = block.code ? block.code.trim() : '';
+            const finalCode = block.isPartnerSpecific ? `${rawCode}[Slug]` : rawCode;
+            const indent = getIndent('LINE');
+
+            if (rawCode.toUpperCase().startsWith('Z')) {
+                output += `${indent}DynamicSampleLine: Code=${finalCode}\n`;
+            } else if (rawCode) {
+                output += `${indent}SampleLine: Code=${finalCode}\n`;
+            }
+        }
+    });
+    closeEpisode();
+    return output;
+};
+
+const getDynamicJSON = (state: GeneratorState) => {
+    const dynamicLinesPayload: Record<string, any> = {};
+    
+    state.blocks.forEach(block => {
+        if (block.type === 'LINE' && block.code?.toUpperCase().startsWith('Z')) {
+            const lectorObj = state.lectors.find(l => l.id === block.lectorId);
+            const lectorName = lectorObj?.name || 'Nieznany';
+            const elevenId = lectorObj?.elevenId || '';
+
+            const variants = block.contentVariants || { boy: block.content, girl: block.content };
+
+            dynamicLinesPayload[block.code as string] = {
+                isUniversal: block.isGenderUniversal || false,
+                boy: variants.boy,
+                girl: variants.girl,
+                lector: lectorName,
+                elevenId: elevenId
+            };
+        }
+    });
+    return dynamicLinesPayload;
+};
+
+const getVoicesSQL = (lectors: StoryLector[]) => {
+    const settingsJSON = JSON.stringify({
+        "Speed": 0.87,
+        "Style": 0.34,
+        "Stability": 0.5,
+        "SimilarityBoost": 0.75,
+        "UseSpeakerBoost": true
+    });
+
+    if (lectors.length === 0) return "-- Brak zdefiniowanych lektorów";
+
+    const values = lectors.map(l => {
+        const safeId = (l.elevenId || '').replace(/'/g, "''");
+        const safeName = (l.name || '').replace(/'/g, "''");
+        const safeSettings = settingsJSON.replace(/'/g, "''");
+        
+        return `    ('${safeId}', '${safeName}', '${safeSettings}')`;
+    }).join(',\n');
+
+    return `INSERT INTO "PartnersApp"."StoryVoices" ("VoiceId", "Name", "Settings") VALUES\n${values};`;
+};
+
+const getStoryTypeSQL = (title: string, lectors: StoryLector[], ageGroup: string, description: string) => {
+    const mainLector = lectors[0];
+    if (!mainLector || !mainLector.elevenId) return "-- Brak głównego lektora lub brak ElevenID";
+
+    const safeTitle = title.replace(/'/g, "''");
+    const safeVoiceId = mainLector.elevenId.replace(/'/g, "''");
+    const safeAgeGroup = ageGroup.replace(/'/g, "''");
+    const safeDescription = description.replace(/'/g, "''");
+
+    return `INSERT INTO "PartnersApp"."StoryTypes" ("Code", "VoiceId", "Type", "AgeGroup", "StoryDescription")
+VALUES (
+    '${safeTitle}',
+    (SELECT "Id" FROM "PartnersApp"."StoryVoices" WHERE "VoiceId" = '${safeVoiceId}' LIMIT 1),
+    'Video',
+    '${safeAgeGroup}',
+    '${safeDescription}'
+);`;
+};
+
+const getSchemaSQL = (title: string, blocks: StoryBlock[]) => {
+    const dsl = getScenarioDSL(blocks);
+    const safeTitle = title.replace(/'/g, "''");
+    const safeSchema = dsl.replace(/'/g, "''");
+
+    return `INSERT INTO "PartnersApp"."StorySchemas" ("StoryId", "Schema")
+VALUES (
+    (SELECT "Id" FROM "PartnersApp"."StoryTypes" WHERE "Code" = '${safeTitle}' LIMIT 1),
+    '${safeSchema}'
+);`;
+};
+
+const getDynamicsSQL = (title: string, blocks: StoryBlock[], lectors: StoryLector[]) => {
+    const safeTitle = title.replace(/'/g, "''");
+    const values: string[] = [];
+
+    // Helper: Znajdź VoiceId (SQL subquery) dla danego lektora. 
+    // Jeśli to główny lektor (index 0) lub brak przypisania -> NULL.
+    const getVoiceSql = (lectorId?: string) => {
+        if (!lectorId) return "NULL";
+        const index = lectors.findIndex(l => l.id === lectorId);
+        // Jeśli to pierwszy lektor (0) lub nie znaleziono -> NULL
+        if (index <= 0) return "NULL";
+        
+        const lector = lectors[index];
+        if (!lector.elevenId) return "NULL";
+
+        return `(SELECT "Id" FROM "PartnersApp"."StoryVoices" WHERE "VoiceId" = '${lector.elevenId}' LIMIT 1)`;
+    };
+
+    // Subquery dla SchemaId
+    const schemaIdSql = `(SELECT "Id" FROM "PartnersApp"."StorySchemas" WHERE "StoryId" = (SELECT "Id" FROM "PartnersApp"."StoryTypes" WHERE "Code" = '${safeTitle}' LIMIT 1) LIMIT 1)`;
+
+    blocks.forEach(block => {
+        // FILTER: Only include 'Z' lines
+        if (block.type === 'LINE' && block.code && block.code.toUpperCase().startsWith('Z')) {
+            const safeCode = block.code.trim().replace(/'/g, "''");
+            const voiceSql = getVoiceSql(block.lectorId);
+
+            // Wariant dla Chłopca (He)
+            const textBoy = (block.contentVariants?.boy || block.content).replace(/'/g, "''");
+            values.push(`    ('${safeCode}', '${textBoy}', ${schemaIdSql}, ${voiceSql}, 'He')`);
+
+            // Wariant dla Dziewczynki (She)
+            const textGirl = (block.contentVariants?.girl || block.content).replace(/'/g, "''");
+            values.push(`    ('${safeCode}', '${textGirl}', ${schemaIdSql}, ${voiceSql}, 'She')`);
+        }
+    });
+
+    if (values.length === 0) return "-- Brak linii dynamicznych (Z)";
+
+    return `INSERT INTO "PartnersApp"."DynamicLines" ("Code", "Text", "SchemaId", "VoiceId", "Relation") VALUES\n${values.join(',\n')};`;
+};
 
 export const ProductionStep: React.FC<ProductionStepProps> = ({ state, onUpdateState, onBack, onSave }) => {
   // --- STATE ---
@@ -200,7 +373,8 @@ export const ProductionStep: React.FC<ProductionStepProps> = ({ state, onUpdateS
             });
             if (error) throw error;
             const { data } = supabase.storage.from('PartnersApp').getPublicUrl(path);
-            return data.publicUrl;
+            
+            return `${data.publicUrl}?t=${Date.now()}`;
         };
 
         let newUrlBoy = block.imageUrls?.boy;
@@ -324,130 +498,283 @@ export const ProductionStep: React.FC<ProductionStepProps> = ({ state, onUpdateS
   };
 
   // --- TIMELINE PREVIEW MODAL ---
-  const TimelineModal = () => (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
-        <motion.div 
-            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            className="bg-slate-50 w-full max-w-5xl max-h-[90vh] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden border border-white"
-        >
-            {/* Modal Header */}
-            <div className="p-8 bg-white border-b border-slate-100 flex justify-between items-center shrink-0">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
-                        <BookOpen size={24} />
+  const TimelineModal = () => {
+    const [expandedImg, setExpandedImg] = useState<string | null>(null);
+    const [modalView, setModalView] = useState<'TIMELINE' | 'SCHEMA' | 'DYNAMICS' | 'SQL_VOICES' | 'SQL_STORY_TYPE' | 'SQL_SCHEMA' | 'SQL_DYNAMICS'>('TIMELINE');
+
+    const previewScenarioDSL = useMemo(() => getScenarioDSL(state.blocks), [state.blocks]);
+    const previewDynamicJSON = useMemo(() => getDynamicJSON(state), [state.blocks]);
+    const previewVoicesSQL = useMemo(() => getVoicesSQL(state.lectors), [state.lectors]);
+    const previewStoryTypeSQL = useMemo(() => getStoryTypeSQL(state.title, state.lectors, state.ageGroup, state.description), [state.title, state.lectors, state.ageGroup, state.description]);
+    const previewSchemaSQL = useMemo(() => getSchemaSQL(state.title, state.blocks), [state.title, state.blocks]);
+    const previewDynamicsSQL = useMemo(() => getDynamicsSQL(state.title, state.blocks, state.lectors), [state.title, state.blocks, state.lectors]);
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
+            {/* LIGHTBOX FOR EXPANDED IMAGE */}
+            <AnimatePresence>
+                {expandedImg && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[150] flex items-center justify-center p-8 bg-black/95 cursor-zoom-out"
+                        onClick={() => setExpandedImg(null)}
+                    >
+                        <motion.img 
+                            initial={{ scale: 0.8 }}
+                            animate={{ scale: 1 }}
+                            exit={{ scale: 0.8 }}
+                            src={expandedImg} 
+                            className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain border-2 border-white/20"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                        <button onClick={() => setExpandedImg(null)} className="absolute top-6 right-6 p-4 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors">
+                            <X size={32} />
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <motion.div 
+                initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                className="bg-slate-50 w-full max-w-5xl max-h-[90vh] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden border border-white"
+            >
+                {/* Modal Header */}
+                <div className="p-6 bg-white border-b border-slate-100 flex justify-between items-center shrink-0">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                            <BookOpen size={20} />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-display font-black text-slate-900 leading-none">Oś Czasu</h2>
+                            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">Bajka: {state.title}</p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-2xl font-display font-black text-slate-900 leading-none">Podgląd Osi Czasu</h2>
-                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Bajka: {state.title}</p>
+                    <div className="flex items-center gap-4">
+                        
+                        {/* VIEW TOGGLE */}
+                        <div className="flex bg-slate-100 p-1 rounded-xl mr-2">
+                            <button onClick={() => setModalView('TIMELINE')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all flex items-center gap-2 ${modalView === 'TIMELINE' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}>
+                                <LayoutList size={14} /> Timeline
+                            </button>
+                            <button onClick={() => setModalView('SCHEMA')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all flex items-center gap-2 ${modalView === 'SCHEMA' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                                <Database size={14} /> Schemat
+                            </button>
+                            <button onClick={() => setModalView('DYNAMICS')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all flex items-center gap-2 ${modalView === 'DYNAMICS' ? 'bg-white shadow-sm text-green-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                                <Code size={14} /> Dynamics
+                            </button>
+                        </div>
+
+                        {/* GENDER TOGGLE */}
+                        <div className="flex bg-slate-100 p-1 rounded-xl mr-4">
+                            <button onClick={() => setActiveGender('boy')} className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${activeGender === 'boy' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400'}`}>Chłopiec</button>
+                            <button onClick={() => setActiveGender('girl')} className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${activeGender === 'girl' ? 'bg-pink-600 text-white shadow-md' : 'text-slate-400'}`}>Dziewczynka</button>
+                        </div>
+                        
+                        <button onClick={() => setShowTimeline(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
+                            <X size={24} />
+                        </button>
                     </div>
                 </div>
-                <div className="flex items-center gap-4">
-                    <div className="flex bg-slate-100 p-1 rounded-xl mr-4">
-                        <button onClick={() => setActiveGender('boy')} className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${activeGender === 'boy' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400'}`}>Chłopiec</button>
-                        <button onClick={() => setActiveGender('girl')} className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${activeGender === 'girl' ? 'bg-pink-600 text-white shadow-md' : 'text-slate-400'}`}>Dziewczynka</button>
-                    </div>
-                    <button onClick={() => setShowTimeline(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
-                        <X size={28} />
+
+                {/* Modal Content - Switcher */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50 relative">
+                    
+                    {/* VIEW: TIMELINE */}
+                    {modalView === 'TIMELINE' && (
+                        <div className="p-4 md:p-6 max-w-4xl mx-auto relative">
+                            {/* Vertical Connecting Line */}
+                            <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-slate-200 rounded-full" />
+
+                            <div className="space-y-1"> {/* Minimal vertical space */}
+                                {(() => {
+                                    // Variable to hold the current persistent image across iterations
+                                    let activeContextImage: string | null = null;
+
+                                    return state.blocks.map((block, idx) => {
+                                        const specificImage = getBlockImageUrl(block);
+                                        
+                                        // Update context image only if the current block has one defined
+                                        if (specificImage) {
+                                            activeContextImage = specificImage;
+                                        }
+
+                                        // Use the persistent context image for display
+                                        const displayImage = activeContextImage;
+                                        const text = getBlockValue(block);
+
+                                        if (block.type === 'EPISODE') return (
+                                            <div key={block.id} className="relative z-10 flex items-center gap-6 group py-2 mt-4">
+                                                <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white shadow-xl ring-4 ring-slate-50">
+                                                    <LayoutList size={20} />
+                                                </div>
+                                                <h3 className="text-2xl font-black text-purple-900 uppercase tracking-tighter">{block.content}</h3>
+                                            </div>
+                                        );
+
+                                        if (block.type === 'CHAPTER') return (
+                                            <div key={block.id} className="relative z-10 flex items-center gap-6 group py-1 mt-2">
+                                                <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white shadow-lg ring-4 ring-slate-50">
+                                                    <ChevronRight size={22} />
+                                                </div>
+                                                <div className="bg-blue-600 text-white px-4 py-1.5 rounded-xl shadow-md">
+                                                    <h4 className="text-sm font-black uppercase tracking-wide">{block.content}</h4>
+                                                </div>
+                                            </div>
+                                        );
+
+                                        if (block.type === 'BACKGROUND') return (
+                                            <div key={block.id} className="relative z-10 flex items-center gap-6 pl-4 py-1">
+                                                <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 ring-2 ring-slate-50">
+                                                    <Music size={14} />
+                                                </div>
+                                                <div className="flex items-center gap-2 bg-pink-50 border border-pink-100 px-3 py-1 rounded-full">
+                                                    <span className="text-[9px] font-black uppercase text-pink-400">Audio:</span>
+                                                    <span className="text-xs font-bold text-pink-700">{block.content}</span>
+                                                    {block.metadata?.fadeIn && <span className="ml-2 text-[9px] font-mono text-pink-300">Fade: {block.metadata.fadeIn}</span>}
+                                                </div>
+                                            </div>
+                                        );
+
+                                        if (block.type === 'PAUSE') return (
+                                            <div key={block.id} className="relative z-10 flex items-center gap-6 pl-4 py-1">
+                                                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 ring-2 ring-slate-50">
+                                                    <Clock size={14} />
+                                                </div>
+                                                <div className="bg-amber-50 border border-amber-100 border-dashed px-3 py-1 rounded-full text-[10px] font-bold text-amber-700">
+                                                    Cisza {block.metadata?.duration}s
+                                                </div>
+                                            </div>
+                                        );
+
+                                        // LINE (HORIZONTAL LAYOUT: ICON | CONTENT_BOX [TEXT | IMAGE])
+                                        return (
+                                            <div key={block.id} className="relative z-10 flex gap-4 items-stretch group py-1">
+                                                {/* Icon (Left Side - Outside Box) */}
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-sm ring-2 ring-slate-50 shrink-0 ml-2 mt-1 ${block.code?.startsWith('Z') ? 'bg-amber-100 text-amber-600' : 'bg-white text-slate-400 border border-slate-100'}`}>
+                                                    {block.code?.startsWith('Z') ? <Sparkles size={14} /> : <Mic2 size={14} />}
+                                                </div>
+                                                
+                                                {/* Content Strip (Row Layout) */}
+                                                <div className={`flex-1 rounded-lg border shadow-sm transition-all flex flex-row overflow-hidden ${block.code?.startsWith('Z') ? 'bg-white border-amber-200' : 'bg-white border-slate-200'}`}>
+                                                    
+                                                    {/* LEFT SIDE: TEXT CONTENT (Expands height) */}
+                                                    <div className="flex-1 p-3 flex flex-col justify-center gap-2">
+                                                        <div className="flex items-center gap-2">
+                                                            {/* Code Badge */}
+                                                            <span className="text-[9px] font-black uppercase text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 min-w-[24px] text-center">{block.code}</span>
+                                                            {block.isPartnerSpecific && <span className="text-[8px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">Partner</span>}
+                                                        </div>
+
+                                                        {/* Text */}
+                                                        <p className={`text-xs leading-relaxed ${block.code?.startsWith('Z') ? 'font-bold text-amber-900' : 'text-slate-700 font-medium'}`}>
+                                                            {text}
+                                                        </p>
+                                                    </div>
+
+                                                    {/* RIGHT SIDE: IMAGE THUMBNAIL (Matches Height) */}
+                                                    {displayImage && (
+                                                        <div 
+                                                            onClick={() => setExpandedImg(displayImage)}
+                                                            className="w-24 border-l border-slate-100 bg-slate-50 relative group/img cursor-zoom-in shrink-0 self-stretch"
+                                                            title="Kliknij, aby powiększyć"
+                                                        >
+                                                            <img 
+                                                                src={displayImage} 
+                                                                alt="" 
+                                                                className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover/img:opacity-100 transition-opacity" 
+                                                            />
+                                                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity bg-black/10">
+                                                                <ZoomIn size={16} className="text-white drop-shadow-md" />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    });
+                                })()}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* VIEW: SCHEMA DSL */}
+                    {modalView === 'SCHEMA' && (
+                        <div className="p-4 md:p-6 h-full bg-slate-900">
+                            <pre className="text-xs font-mono text-blue-300 leading-relaxed overflow-x-auto whitespace-pre-wrap">
+                                {previewScenarioDSL}
+                            </pre>
+                        </div>
+                    )}
+
+                    {/* VIEW: DYNAMICS JSON */}
+                    {modalView === 'DYNAMICS' && (
+                        <div className="p-4 md:p-6 h-full bg-slate-900">
+                            <pre className="text-xs font-mono text-emerald-400 leading-relaxed overflow-x-auto whitespace-pre-wrap">
+                                {JSON.stringify(previewDynamicJSON, null, 2)}
+                            </pre>
+                        </div>
+                    )}
+
+                    {/* VIEW: SQL VOICES */}
+                    {modalView === 'SQL_VOICES' && (
+                        <div className="p-4 md:p-6 h-full bg-slate-900">
+                            <pre className="text-xs font-mono text-amber-300 leading-relaxed overflow-x-auto whitespace-pre-wrap">
+                                {previewVoicesSQL}
+                            </pre>
+                        </div>
+                    )}
+
+                    {/* VIEW: SQL STORY TYPE */}
+                    {modalView === 'SQL_STORY_TYPE' && (
+                        <div className="p-4 md:p-6 h-full bg-slate-900">
+                            <pre className="text-xs font-mono text-pink-300 leading-relaxed overflow-x-auto whitespace-pre-wrap">
+                                {previewStoryTypeSQL}
+                            </pre>
+                        </div>
+                    )}
+
+                    {/* VIEW: SQL SCHEMA */}
+                    {modalView === 'SQL_SCHEMA' && (
+                        <div className="p-4 md:p-6 h-full bg-slate-900">
+                            <pre className="text-xs font-mono text-cyan-300 leading-relaxed overflow-x-auto whitespace-pre-wrap">
+                                {previewSchemaSQL}
+                            </pre>
+                        </div>
+                    )}
+
+                    {/* VIEW: SQL DYNAMICS */}
+                    {modalView === 'SQL_DYNAMICS' && (
+                        <div className="p-4 md:p-6 h-full bg-slate-900">
+                            <pre className="text-xs font-mono text-purple-300 leading-relaxed overflow-x-auto whitespace-pre-wrap">
+                                {previewDynamicsSQL}
+                            </pre>
+                        </div>
+                    )}
+
+                </div>
+                
+                {/* Modal Footer */}
+                <div className="p-4 bg-white border-t border-slate-100 flex justify-center gap-4 flex-wrap">
+                    <button onClick={() => setModalView('SQL_VOICES')} className={`px-4 py-2 rounded-xl font-black uppercase tracking-widest text-xs transition-colors border ${modalView === 'SQL_VOICES' ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}>
+                        SQL Lektorzy
+                    </button>
+                    <button onClick={() => setModalView('SQL_STORY_TYPE')} className={`px-4 py-2 rounded-xl font-black uppercase tracking-widest text-xs transition-colors border ${modalView === 'SQL_STORY_TYPE' ? 'bg-pink-100 text-pink-700 border-pink-200' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}>
+                        SQL StoryType
+                    </button>
+                    <button onClick={() => setModalView('SQL_SCHEMA')} className={`px-4 py-2 rounded-xl font-black uppercase tracking-widest text-xs transition-colors border ${modalView === 'SQL_SCHEMA' ? 'bg-cyan-100 text-cyan-700 border-cyan-200' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}>
+                        SQL Schema
+                    </button>
+                    <button onClick={() => setModalView('SQL_DYNAMICS')} className={`px-4 py-2 rounded-xl font-black uppercase tracking-widest text-xs transition-colors border ${modalView === 'SQL_DYNAMICS' ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}>
+                        SQL Dynamics
                     </button>
                 </div>
-            </div>
-
-            {/* Modal Content - Scrollable Timeline */}
-            <div className="flex-1 overflow-y-auto p-12 custom-scrollbar">
-                <div className="max-w-3xl mx-auto relative">
-                    {/* Vertical Connecting Line */}
-                    <div className="absolute left-6 top-0 bottom-0 w-1 bg-slate-200 rounded-full" />
-
-                    <div className="space-y-12">
-                        {state.blocks.map((block, idx) => {
-                            const imageUrl = getBlockImageUrl(block);
-                            const text = getBlockValue(block);
-
-                            if (block.type === 'EPISODE') return (
-                                <div key={block.id} className="relative z-10 flex items-center gap-8 group">
-                                    <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white shadow-xl ring-4 ring-white">
-                                        <LayoutList size={20} />
-                                    </div>
-                                    <h3 className="text-3xl font-black text-purple-900 uppercase tracking-tighter">{block.content}</h3>
-                                </div>
-                            );
-
-                            if (block.type === 'CHAPTER') return (
-                                <div key={block.id} className="relative z-10 flex items-center gap-8 group">
-                                    <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white shadow-lg ring-4 ring-white">
-                                        <ChevronRight size={24} />
-                                    </div>
-                                    <div className="bg-blue-600 text-white px-6 py-2 rounded-2xl shadow-md">
-                                        <h4 className="text-lg font-black uppercase tracking-wide">{block.content}</h4>
-                                    </div>
-                                </div>
-                            );
-
-                            if (block.type === 'BACKGROUND') return (
-                                <div key={block.id} className="relative z-10 flex items-center gap-8 pl-4">
-                                    <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 ring-4 ring-slate-50">
-                                        <Music size={14} />
-                                    </div>
-                                    <div className="flex items-center gap-2 bg-pink-50 border border-pink-100 px-4 py-1.5 rounded-full">
-                                        <span className="text-[10px] font-black uppercase text-pink-400">Audio:</span>
-                                        <span className="text-xs font-bold text-pink-700">{block.content}</span>
-                                        {block.metadata?.fadeIn && <span className="ml-2 text-[9px] font-mono text-pink-300">Fade: {block.metadata.fadeIn}</span>}
-                                    </div>
-                                </div>
-                            );
-
-                            if (block.type === 'PAUSE') return (
-                                <div key={block.id} className="relative z-10 flex items-center gap-8 pl-4">
-                                    <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 ring-4 ring-slate-50">
-                                        <Clock size={14} />
-                                    </div>
-                                    <div className="bg-amber-50 border border-amber-100 border-dashed px-4 py-1.5 rounded-full text-xs font-bold text-amber-700">
-                                        Cisza {block.metadata?.duration}s
-                                    </div>
-                                </div>
-                            );
-
-                            // LINE
-                            return (
-                                <div key={block.id} className="relative z-10 flex gap-8">
-                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-md ring-4 ring-white shrink-0 ${block.code?.startsWith('Z') ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-500'}`}>
-                                        {block.code?.startsWith('Z') ? <Sparkles size={20} /> : <Mic2 size={20} />}
-                                    </div>
-                                    <div className={`flex-1 p-6 rounded-[2rem] border shadow-sm transition-all ${block.code?.startsWith('Z') ? 'bg-white border-amber-200' : 'bg-white border-slate-200'}`}>
-                                        <div className="flex justify-between items-center mb-4">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-black uppercase text-slate-400 px-2 py-0.5 bg-slate-50 rounded border border-slate-100">{block.code}</span>
-                                                {block.isPartnerSpecific && <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">Partner Spec.</span>}
-                                            </div>
-                                            <span className="text-[10px] font-bold text-slate-300">#{idx + 1}</span>
-                                        </div>
-                                        
-                                        <div className="flex flex-col md:flex-row gap-6">
-                                            <p className={`text-base leading-relaxed flex-1 ${block.code?.startsWith('Z') ? 'font-black text-amber-900' : 'text-slate-700 font-medium'}`}>
-                                                {text}
-                                            </p>
-                                            {imageUrl && (
-                                                <div className="w-full md:w-48 aspect-video rounded-xl overflow-hidden border-2 border-slate-100 shadow-sm shrink-0">
-                                                    <img src={imageUrl} alt="" className="w-full h-full object-cover" />
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            </div>
-            
-            {/* Modal Footer */}
-            <div className="p-6 bg-white border-t border-slate-100 text-center">
-                <button onClick={() => setShowTimeline(false)} className="px-10 py-3 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-slate-800 transition-colors">Zamknij Podgląd</button>
-            </div>
-        </motion.div>
-    </div>
-  );
+            </motion.div>
+        </div>
+    );
+  };
 
   return (
     <div className="flex flex-col h-full bg-slate-50 relative">
@@ -489,7 +816,7 @@ export const ProductionStep: React.FC<ProductionStepProps> = ({ state, onUpdateS
               </button>
 
               {onSave && (
-                  <button onClick={onSave} disabled={state.isSaving} className="px-6 py-2 bg-green-600 text-white rounded-xl font-black text-sm flex items-center gap-2 hover:bg-green-700 transition-colors shadow-md disabled:opacity-70">
+                  <button onClick={onSave} disabled={state.isSaving} className="px-6 py-2 bg-green-600 text-white rounded-xl font-black text-sm flex items-center gap-2 hover:bg-green-700 transition-colors shadow-md disabled:opacity-70" title="Zapisz obecny stan w bazie danych">
                       {state.isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
                       {state.isSaving ? 'Zapisuję...' : 'Zapisz zmiany w bazie'}
                   </button>

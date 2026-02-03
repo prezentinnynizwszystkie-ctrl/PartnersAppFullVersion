@@ -9,11 +9,11 @@ import {
 interface ApprovalStepProps {
   state: GeneratorState;
   onBack: () => void;
-  onSave: () => Promise<boolean>; // Updated signature to Promise<boolean>
+  onSave: () => Promise<boolean>;
   onNext?: () => void;
 }
 
-// Helper do generowania DSL (kopia logiki dla podglądu)
+// Helper do generowania DSL (zaktualizowany o logikę [Slug])
 const getScenarioDSL = (blocks: StoryBlock[]) => {
     let output = "";
     let episodeOpen = false;
@@ -42,11 +42,14 @@ const getScenarioDSL = (blocks: StoryBlock[]) => {
             const dur = block.metadata?.duration || 2;
             output += `            PauseLine: 00:00:0${dur}\n`;
         } else if (block.type === 'LINE') {
-            const code = block.code ? block.code.trim() : '';
-            if (code.toUpperCase().startsWith('Z')) {
-                output += `            DynamicSampleLine: Code=${code}\n`;
-            } else if (code) {
-                output += `            SampleLine: Code=${code}\n`;
+            const rawCode = block.code ? block.code.trim() : '';
+            // FIX: Dodawanie suffixu [Slug] jeśli linia jest PartnerSpecific
+            const finalCode = block.isPartnerSpecific ? `${rawCode}[Slug]` : rawCode;
+
+            if (rawCode.toUpperCase().startsWith('Z')) {
+                output += `            DynamicSampleLine: Code=${finalCode}\n`;
+            } else if (rawCode) {
+                output += `            SampleLine: Code=${finalCode}\n`;
             }
         }
     });
@@ -54,24 +57,28 @@ const getScenarioDSL = (blocks: StoryBlock[]) => {
     return output;
 };
 
-// Helper do generowania DynamicLines JSON (kopia logiki dla podglądu)
+// Helper do generowania DynamicLines JSON (zaktualizowany o ElevenID i czyszczenie UUID)
 const getDynamicJSON = (state: GeneratorState) => {
     const dynamicLinesPayload: Record<string, any> = {};
-    const defaultLectorId = state.lectors[0]?.id;
-
+    
     state.blocks.forEach(block => {
         if (block.type === 'LINE' && block.code?.toUpperCase().startsWith('Z')) {
-            const isCustomLector = block.lectorId && block.lectorId !== defaultLectorId;
-            if (isCustomLector) {
-                const lectorName = state.lectors.find(l => l.id === block.lectorId)?.name || 'Nieznany';
-                dynamicLinesPayload[block.code as string] = {
-                    text: block.content,
-                    lector: lectorName,
-                    lectorId: block.lectorId
-                };
-            } else {
-                dynamicLinesPayload[block.code as string] = block.content;
-            }
+            // Znajdź lektora i pobierz jego ElevenID zamiast wewnętrznego ID
+            const lectorObj = state.lectors.find(l => l.id === block.lectorId);
+            const lectorName = lectorObj?.name || 'Nieznany';
+            const elevenId = lectorObj?.elevenId || '';
+
+            // Pobierz warianty tekstu
+            const variants = block.contentVariants || { boy: block.content, girl: block.content };
+
+            dynamicLinesPayload[block.code as string] = {
+                isUniversal: block.isGenderUniversal || false,
+                boy: variants.boy,
+                girl: variants.girl,
+                lector: lectorName,
+                // FIX: Używamy elevenId, a nie wewnętrznego UUID
+                elevenId: elevenId
+            };
         }
     });
     return dynamicLinesPayload;
@@ -214,7 +221,10 @@ export const ApprovalStep: React.FC<ApprovalStepProps> = ({ state, onBack, onSav
                 {staticLines.map((block) => (
                     <div key={block.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-sm">
                         <div className="flex justify-between mb-1">
-                            <span className="font-black text-slate-500 text-xs">{block.code}</span>
+                            <span className="font-black text-slate-500 text-xs">
+                                {block.code}
+                                {block.isPartnerSpecific && <span className="ml-2 text-[9px] text-indigo-500 bg-indigo-50 px-1 rounded">PARTNER</span>}
+                            </span>
                         </div>
                         <p className="text-slate-700 leading-relaxed font-medium">{block.content}</p>
                     </div>
@@ -236,7 +246,10 @@ export const ApprovalStep: React.FC<ApprovalStepProps> = ({ state, onBack, onSav
                 {dynamicLines.map((block) => (
                     <div key={block.id} className="p-3 rounded-xl bg-amber-50/50 border border-amber-100 text-sm">
                         <div className="flex justify-between mb-1">
-                            <span className="font-black text-amber-600 text-xs">{block.code}</span>
+                            <span className="font-black text-amber-600 text-xs">
+                                {block.code}
+                                {block.isPartnerSpecific && <span className="ml-2 text-[9px] text-indigo-600 bg-white/50 px-1 rounded">PARTNER</span>}
+                            </span>
                         </div>
                         <p className="text-slate-800 leading-relaxed font-bold">{block.content}</p>
                     </div>
@@ -323,6 +336,7 @@ export const ApprovalStep: React.FC<ApprovalStepProps> = ({ state, onBack, onSav
                           <div className="flex justify-between items-center">
                               <div className="flex items-center gap-2">
                                   {block.code && <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 bg-white px-1.5 rounded border border-slate-100">{block.code}</span>}
+                                  {block.isPartnerSpecific && <span className="text-[9px] font-bold text-white bg-indigo-400 px-1.5 py-0.5 rounded">PARTNER</span>}
                                   {isCustomLector && (
                                       <span className="flex items-center gap-1 text-[10px] font-bold text-white bg-indigo-500 px-2 py-0.5 rounded-full shadow-sm">
                                           <Mic2 size={10} /> {lectorName}

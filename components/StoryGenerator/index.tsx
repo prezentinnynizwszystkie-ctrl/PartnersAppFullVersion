@@ -8,7 +8,6 @@ import { ApprovalStep } from './steps/ApprovalStep';
 import { ProductionStep } from './steps/ProductionStep';
 import { Wand2, ChevronRight, Loader2, List, Trash2, Edit, Copy, Plus, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-// FIX: Correct relative path depth (2 levels up)
 import { supabase } from '../../utils/supabaseClient';
 import { parseScriptToBlocks, generateScenarioOutput } from './utils';
 
@@ -26,7 +25,7 @@ const StoryGenerator: React.FC = () => {
     dbId: null, 
     title: '',
     ageGroup: '3-5',
-    gender: 'Chłopiec', // Changed from Uniwersalna
+    gender: 'Chłopiec', 
     description: '',
     coverUrl: '',
     rawScript: '',
@@ -94,14 +93,11 @@ const StoryGenerator: React.FC = () => {
       const scenarioJSON = story.Scenario || {};
       const lectors = (story.Lektorzy as StoryLector[]) || [{ id: '1', name: 'Narrator', elevenId: '' }];
       
-      // 1. Parsowanie schematu (DSL) na bloki strukturalne
       let blocks = parseScriptToBlocks(schemaDSL || (typeof story.Scenario === 'string' ? story.Scenario : ''), lectors);
 
-      // 2. Uzupełnienie bloków o treść i metadane z JSON-a
       blocks = blocks.map(block => {
           if (block.type === 'LINE' && block.code && scenarioJSON[block.code]) {
               const data = scenarioJSON[block.code];
-              
               const loadedContent = data.content?.boy || (typeof data.content === 'string' ? data.content : block.content);
 
               return {
@@ -119,7 +115,6 @@ const StoryGenerator: React.FC = () => {
           return block;
       });
 
-      // 3. Rekonstrukcja czytelnego scenariusza (Human Readable)
       const reconstructedScript = generateScenarioOutput(blocks, lectors);
 
       return {
@@ -231,12 +226,15 @@ const StoryGenerator: React.FC = () => {
               const dur = block.metadata?.duration || 2;
               output += `            PauseLine: 00:00:0${dur}\n`;
           } else if (block.type === 'LINE') {
-              const code = block.code ? block.code.trim() : '';
-              if (code.toUpperCase().startsWith('Z')) {
-                  output += `            DynamicSampleLine: Code=${code}\n`;
+              const rawCode = block.code ? block.code.trim() : '';
+              // CHANGE: Force append [Slug] if partner specific
+              const finalCode = block.isPartnerSpecific ? `${rawCode}[Slug]` : rawCode;
+
+              if (rawCode.toUpperCase().startsWith('Z')) {
+                  output += `            DynamicSampleLine: Code=${finalCode}\n`;
               } else {
-                  if (code) {
-                      output += `            SampleLine: Code=${code}\n`;
+                  if (rawCode) {
+                      output += `            SampleLine: Code=${finalCode}\n`;
                   }
               }
           }
@@ -277,7 +275,9 @@ const StoryGenerator: React.FC = () => {
       
       try {
           const dynamicLinesPayload: Record<string, any> = {};
-          const defaultLectorId = state.lectors[0]?.id;
+          
+          // Debugging lectors before save
+          console.log("Saving Dynamic Lines. Lectors:", state.lectors);
 
           state.blocks.forEach(block => {
               if (block.type === 'LINE' && block.code?.toUpperCase().startsWith('Z')) {
@@ -292,7 +292,7 @@ const StoryGenerator: React.FC = () => {
                       boy: variants.boy,
                       girl: variants.girl,
                       lector: lectorName,
-                      lectorId: block.lectorId,
+                      // CHANGE: Clean JSON. Only ElevenID, no internal UUIDs.
                       elevenId: elevenId
                   };
               }
