@@ -61,9 +61,10 @@ const ImageCropper = ({ src, onCancel, onCrop }: { src: string, onCancel: () => 
         const nw = img.naturalWidth;
         const nh = img.naturalHeight;
         
-        // Calculate scale factor to match "cover" initially
-        const scaleCover = Math.max(canvas.width / nw, canvas.height / nh);
-        const finalScale = scaleCover * zoom;
+        // Calculate scale factor using CONTAIN logic (Math.min) instead of COVER (Math.max)
+        // This ensures the image fits by default if ratios match, and allows zooming in.
+        const scaleBase = Math.min(canvas.width / nw, canvas.height / nh);
+        const finalScale = scaleBase * zoom;
 
         const drawWidth = nw * finalScale;
         const drawHeight = nh * finalScale;
@@ -109,11 +110,9 @@ const ImageCropper = ({ src, onCancel, onCrop }: { src: string, onCancel: () => 
                         top: '50%',
                         left: '50%',
                         transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
-                        minWidth: '100%',
-                        minHeight: '100%',
-                        width: 'auto',
-                        height: 'auto',
-                        objectFit: 'cover'
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain' // Changed from cover to contain to prevent auto-zoom
                     }}
                     draggable={false}
                 />
@@ -129,7 +128,7 @@ const ImageCropper = ({ src, onCancel, onCrop }: { src: string, onCancel: () => 
                 <ZoomIn className="text-white" size={24} />
                 <input 
                     type="range" 
-                    min="1" 
+                    min="0.5" 
                     max="3" 
                     step="0.05" 
                     value={zoom} 
@@ -349,9 +348,6 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
         setIsGeneratingAudio(true);
         try {
             // Rachel Voice ID: 21m00Tcm4TlvDq8ikWAM
-            // Mimi (Childish): 21m00Tcm4TlvDq8ikWAM (Actually Rachel is better for pro intro)
-            // Let's use 'Glinda' or a standard pleasant voice. 
-            // Using standard 'Rachel' for now.
             const voiceId = '21m00Tcm4TlvDq8ikWAM'; 
             
             const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
