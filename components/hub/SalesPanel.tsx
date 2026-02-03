@@ -14,14 +14,22 @@ interface SalesPanelProps {
     onPartnerUpdate?: () => void;
 }
 
-// --- HELPER COMPONENT: IMAGE CROPPER (21:9) ---
+// --- HELPER COMPONENT: ROBUST IMAGE CROPPER (21:9) ---
 const ImageCropper = ({ src, onCancel, onCrop }: { src: string, onCancel: () => void, onCrop: (blob: Blob) => void }) => {
     const [zoom, setZoom] = useState(1);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
+    const [imgDimensions, setImgDimensions] = useState({ width: 0, height: 0, naturalWidth: 0, naturalHeight: 0 });
+    
     const lastMousePos = useRef({ x: 0, y: 0 });
-    const imgRef = useRef<HTMLImageElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const imgRef = useRef<HTMLImageElement>(null);
+
+    // Load image stats to center it initially
+    const onImgLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+        const { width, height, naturalWidth, naturalHeight } = e.currentTarget;
+        setImgDimensions({ width, height, naturalWidth, naturalHeight });
+    };
 
     const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
         setIsDragging(true);
@@ -45,42 +53,84 @@ const ImageCropper = ({ src, onCancel, onCrop }: { src: string, onCancel: () => 
     const handleMouseUp = () => setIsDragging(false);
 
     const handleCrop = () => {
+        if (!containerRef.current || !imgRef.current) return;
+
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        if (!ctx || !imgRef.current) return;
+        if (!ctx) return;
 
-        // Output resolution (21:9 high quality)
-        canvas.width = 1680; 
-        canvas.height = 720; 
+        // TARGET RESOLUTION: 1680x720 (21:9)
+        const TARGET_WIDTH = 1680;
+        const TARGET_HEIGHT = 720;
 
-        // Draw logic simplified for MVP
+        canvas.width = TARGET_WIDTH;
+        canvas.height = TARGET_HEIGHT;
+
+        // Fill black background (for letterboxing)
         ctx.fillStyle = 'black';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        const img = imgRef.current;
-        const nw = img.naturalWidth;
-        const nh = img.naturalHeight;
+        // Calculate ratios
+        // Container visible size
+        const containerRect = containerRef.current.getBoundingClientRect();
         
-        // Calculate scale factor using CONTAIN logic (Math.min) instead of COVER (Math.max)
-        // This ensures the image fits by default if ratios match, and allows zooming in.
-        const scaleBase = Math.min(canvas.width / nw, canvas.height / nh);
-        const finalScale = scaleBase * zoom;
+        // How much is the canvas bigger than the UI container?
+        const pixelRatio = TARGET_WIDTH / containerRect.width;
 
-        const drawWidth = nw * finalScale;
-        const drawHeight = nh * finalScale;
+        const img = imgRef.current;
+        
+        // Calculate current rendered position relative to container center
+        // Center of container
+        const cx = containerRect.width / 2;
+        const cy = containerRect.height / 2;
 
-        // Assuming center alignment
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
+        // Current image visual properties
+        // We use the rendered width/height (which is 100% of container or auto based on object-fit logic below)
+        // Actually, we use the transform logic.
+        
+        // Let's replicate the CSS transform in Canvas math.
+        // CSS: translate(-50%, -50%) translate(offsetX, offsetY) scale(zoom)
+        // Image Origin is Center.
+        
+        const currentScale = zoom;
+        
+        // Dimensions of the image as displayed in the DOM before scale (the 'base' dimensions)
+        // Since we force object-fit: contain in a 100% w/h box, we need the rect.
+        const imgRect = img.getBoundingClientRect();
+        
+        // BUT, checking getBoundingClientRect includes the transform. 
+        // Let's use the natural dimensions and scale them to fit the container like 'contain' does.
+        const containerAspect = containerRect.width / containerRect.height;
+        const imgAspect = img.naturalWidth / img.naturalHeight;
+        
+        let baseRenderWidth, baseRenderHeight;
+        
+        if (imgAspect > containerAspect) {
+            // Image is wider than container -> Fits by Width
+            baseRenderWidth = containerRect.width;
+            baseRenderHeight = containerRect.width / imgAspect;
+        } else {
+            // Image is taller than container -> Fits by Height
+            baseRenderHeight = containerRect.height;
+            baseRenderWidth = containerRect.height * imgAspect;
+        }
 
-        // Ratio for offset mapping
-        const uiWidth = containerRef.current?.clientWidth || 600;
-        const ratio = canvas.width / uiWidth;
+        // Apply Zoom
+        const finalRenderWidth = baseRenderWidth * zoom;
+        const finalRenderHeight = baseRenderHeight * zoom;
 
-        const finalX = centerX - (drawWidth / 2) + (offset.x * ratio);
-        const finalY = centerY - (drawHeight / 2) + (offset.y * ratio);
+        // Apply Offset
+        // Offset in CSS pixels from center
+        const finalX_CSS = (containerRect.width - finalRenderWidth) / 2 + offset.x;
+        const finalY_CSS = (containerRect.height - finalRenderHeight) / 2 + offset.y;
 
-        ctx.drawImage(img, finalX, finalY, drawWidth, drawHeight);
+        // Convert CSS pixels to Canvas pixels
+        const drawX = finalX_CSS * pixelRatio;
+        const drawY = finalY_CSS * pixelRatio;
+        const drawW = finalRenderWidth * pixelRatio;
+        const drawH = finalRenderHeight * pixelRatio;
+
+        ctx.drawImage(img, drawX, drawY, drawW, drawH);
 
         canvas.toBlob((blob) => {
             if (blob) onCrop(blob);
@@ -90,6 +140,8 @@ const ImageCropper = ({ src, onCancel, onCrop }: { src: string, onCancel: () => 
     return (
         <div className="fixed inset-0 z-[200] bg-slate-900/95 flex flex-col items-center justify-center p-4 animate-in fade-in">
             <h3 className="text-white font-bold text-xl mb-6">Dopasuj Poster Wideo (21:9)</h3>
+            
+            {/* CONTAINER */}
             <div 
                 ref={containerRef}
                 className="relative w-full max-w-[800px] aspect-[21/9] bg-black overflow-hidden border-4 border-white/20 rounded-lg cursor-move shadow-2xl"
@@ -101,22 +153,38 @@ const ImageCropper = ({ src, onCancel, onCrop }: { src: string, onCancel: () => 
                 onTouchMove={handleMouseMove}
                 onTouchEnd={handleMouseUp}
             >
+                {/* 
+                    LOGIC CHANGE: 
+                    Instead of object-fit cover/contain which is hard to map to canvas with zoom/pan,
+                    we center the image using flexbox or absolute positioning and let the user scale it.
+                    We use style to force it to 'contain' initially.
+                */}
                 <img 
                     ref={imgRef}
                     src={src} 
                     alt="Crop" 
-                    className="absolute max-w-none origin-center pointer-events-none select-none"
+                    onLoad={onImgLoad}
+                    className="absolute pointer-events-none select-none origin-center transition-transform duration-75"
                     style={{
+                        // Center initially
                         top: '50%',
                         left: '50%',
-                        transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain' // Changed from cover to contain to prevent auto-zoom
+                        // Force contain logic via max-w/max-h
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                        width: 'auto',
+                        height: 'auto',
+                        // Apply user transforms. 
+                        // translate(-50%, -50%) centers the element's own anchor point.
+                        // translate(offset) moves it.
+                        // scale(zoom) zooms it.
+                        transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px) scale(${zoom})`
                     }}
                     draggable={false}
                 />
-                <div className="absolute inset-0 pointer-events-none opacity-30 grid grid-cols-3 grid-rows-3">
+                
+                {/* Grid Overlay */}
+                <div className="absolute inset-0 pointer-events-none opacity-30 grid grid-cols-3 grid-rows-3 border border-white/10">
                     <div className="border-r border-white/50"></div>
                     <div className="border-r border-white/50"></div>
                     <div></div>
@@ -124,18 +192,22 @@ const ImageCropper = ({ src, onCancel, onCrop }: { src: string, onCancel: () => 
                     <div className="border-t border-white/50 col-span-3"></div>
                 </div>
             </div>
+
+            {/* CONTROLS */}
             <div className="mt-8 w-full max-w-[600px] flex items-center gap-4 bg-white/10 p-4 rounded-xl backdrop-blur-sm">
                 <ZoomIn className="text-white" size={24} />
                 <input 
                     type="range" 
-                    min="0.5" 
+                    min="0.1" 
                     max="3" 
-                    step="0.05" 
+                    step="0.01" 
                     value={zoom} 
                     onChange={(e) => setZoom(parseFloat(e.target.value))}
                     className="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
+                <span className="text-white font-mono text-xs w-10 text-right">{(zoom * 100).toFixed(0)}%</span>
             </div>
+            
             <div className="mt-8 flex gap-4">
                 <button onClick={onCancel} className="px-8 py-3 rounded-xl font-bold text-white hover:bg-white/10 transition-colors">Anuluj</button>
                 <button onClick={handleCrop} className="px-8 py-3 rounded-xl font-bold bg-blue-600 text-white shadow-xl hover:bg-blue-500 transition-colors flex items-center gap-2"><Crop size={20} /> Przytnij i Zapisz</button>
@@ -1140,7 +1212,7 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                                 <div className="flex flex-col items-center gap-1">
                                     {posterBlob ? (
                                         <div className="relative w-full h-full flex items-center justify-center">
-                                            {posterPreviewUrl && <img src={posterPreviewUrl} className="max-h-16 object-cover rounded shadow-sm border border-slate-200" />}
+                                            {posterPreviewUrl && <img src={posterPreviewUrl} className="max-h-16 w-full object-cover rounded shadow-sm border border-slate-200 aspect-[21/9]" />}
                                             <div className="absolute inset-0 flex items-center justify-center bg-black/20 text-white font-bold text-xs"><CheckCircle2 className="mr-1"/> Gotowe</div>
                                         </div>
                                     ) : (
