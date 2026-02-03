@@ -372,7 +372,8 @@ const PartnerLanding: React.FC = () => {
 
   // Helper to render Hero Header with highlighting
   const renderHeroHeader = (partner: Partner) => {
-      const text = partner.HeroHeader || `Twoje dziecko {bohaterem}\nniezwykłej historii w {${partner.PartnerNameGenitive || partner.PartnerName}}`;
+      // Changed default template to use space instead of \n to allow text-wrap: balance to work
+      const text = partner.HeroHeader || `Twoje dziecko {bohaterem} niezwykłej przygody w {${partner.PartnerNameGenitive || partner.PartnerName}}`;
       const lines = text.split('\n');
       return lines.map((line, lineIdx) => (
           <React.Fragment key={lineIdx}>
@@ -485,18 +486,22 @@ const PartnerLanding: React.FC = () => {
         </AnimatePresence>
 
         {/* Standard Hero Content (Text & Inputs) - Always visible underneath, interactive when intro finished */}
-        <div className={`relative z-10 max-w-5xl mx-auto px-6 text-center flex flex-col items-center gap-8 mt-10 transition-opacity duration-1000 ${introStatus === 'PLAYING' ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <div className={`relative z-10 w-full max-w-5xl mx-auto px-6 text-center flex flex-col items-center gap-8 mt-10 transition-opacity duration-1000 ${introStatus === 'PLAYING' ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
             <motion.div 
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8 }}
+                className="w-full flex flex-col items-center"
             >
                 <span className="inline-block py-1 px-3 rounded-full border border-white/20 bg-white/10 text-white text-xs font-bold uppercase tracking-widest mb-6 backdrop-blur-md">
                     Nowość w ofercie {partner.PartnerNameGenitive || partner.PartnerName}
                 </span>
-                <h1 className="text-3xl md:text-5xl lg:text-6xl font-display font-black text-white leading-[1.2] mb-8 drop-shadow-lg">
+                
+                {/* IMPROVED HEADLINE: text-wrap: balance logic via style */}
+                <h1 style={{ textWrap: 'balance' }} className="text-3xl md:text-5xl lg:text-6xl font-display font-black text-white leading-tight mb-8 drop-shadow-lg max-w-[90%] mx-auto">
                     {renderHeroHeader(partner)}
                 </h1>
+                
                 <p className="text-white/80 uppercase tracking-[0.2em] font-bold text-xs md:text-sm drop-shadow-md">
                     PAMIĄTKA, KTÓRA BUDUJE CHARAKTER I ZOSTAJE NA LATA.
                 </p>
@@ -521,7 +526,7 @@ const PartnerLanding: React.FC = () => {
                             placeholder="Wpisz kod tutaj..." 
                             value={heroCode}
                             onChange={(e) => setHeroCode(e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl bg-white/90 text-slate-900 font-bold text-center placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#fccb00]"
+                            className="w-full px-4 py-3 rounded-xl bg-white/90 text-slate-900 font-bold text-center placeholder:text-slate-400 focus:outline-none focus:border-[#fccb00] ring-2 ring-transparent focus:ring-[#fccb00]"
                         />
                     </div>
                 </div>
