@@ -71,60 +71,30 @@ const ImageCropper = ({ src, onCancel, onCrop }: { src: string, onCancel: () => 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Calculate ratios
-        // Container visible size
         const containerRect = containerRef.current.getBoundingClientRect();
-        
-        // How much is the canvas bigger than the UI container?
         const pixelRatio = TARGET_WIDTH / containerRect.width;
-
         const img = imgRef.current;
         
-        // Calculate current rendered position relative to container center
-        // Center of container
-        const cx = containerRect.width / 2;
-        const cy = containerRect.height / 2;
-
-        // Current image visual properties
-        // We use the rendered width/height (which is 100% of container or auto based on object-fit logic below)
-        // Actually, we use the transform logic.
-        
-        // Let's replicate the CSS transform in Canvas math.
-        // CSS: translate(-50%, -50%) translate(offsetX, offsetY) scale(zoom)
-        // Image Origin is Center.
-        
         const currentScale = zoom;
-        
-        // Dimensions of the image as displayed in the DOM before scale (the 'base' dimensions)
-        // Since we force object-fit: contain in a 100% w/h box, we need the rect.
-        const imgRect = img.getBoundingClientRect();
-        
-        // BUT, checking getBoundingClientRect includes the transform. 
-        // Let's use the natural dimensions and scale them to fit the container like 'contain' does.
         const containerAspect = containerRect.width / containerRect.height;
         const imgAspect = img.naturalWidth / img.naturalHeight;
         
         let baseRenderWidth, baseRenderHeight;
         
         if (imgAspect > containerAspect) {
-            // Image is wider than container -> Fits by Width
             baseRenderWidth = containerRect.width;
             baseRenderHeight = containerRect.width / imgAspect;
         } else {
-            // Image is taller than container -> Fits by Height
             baseRenderHeight = containerRect.height;
             baseRenderWidth = containerRect.height * imgAspect;
         }
 
-        // Apply Zoom
         const finalRenderWidth = baseRenderWidth * zoom;
         const finalRenderHeight = baseRenderHeight * zoom;
 
-        // Apply Offset
-        // Offset in CSS pixels from center
         const finalX_CSS = (containerRect.width - finalRenderWidth) / 2 + offset.x;
         const finalY_CSS = (containerRect.height - finalRenderHeight) / 2 + offset.y;
 
-        // Convert CSS pixels to Canvas pixels
         const drawX = finalX_CSS * pixelRatio;
         const drawY = finalY_CSS * pixelRatio;
         const drawW = finalRenderWidth * pixelRatio;
@@ -141,7 +111,6 @@ const ImageCropper = ({ src, onCancel, onCrop }: { src: string, onCancel: () => 
         <div className="fixed inset-0 z-[200] bg-slate-900/95 flex flex-col items-center justify-center p-4 animate-in fade-in">
             <h3 className="text-white font-bold text-xl mb-6">Dopasuj Poster Wideo (21:9)</h3>
             
-            {/* CONTAINER */}
             <div 
                 ref={containerRef}
                 className="relative w-full max-w-[800px] aspect-[21/9] bg-black overflow-hidden border-4 border-white/20 rounded-lg cursor-move shadow-2xl"
@@ -153,12 +122,6 @@ const ImageCropper = ({ src, onCancel, onCrop }: { src: string, onCancel: () => 
                 onTouchMove={handleMouseMove}
                 onTouchEnd={handleMouseUp}
             >
-                {/* 
-                    LOGIC CHANGE: 
-                    Instead of object-fit cover/contain which is hard to map to canvas with zoom/pan,
-                    we center the image using flexbox or absolute positioning and let the user scale it.
-                    We use style to force it to 'contain' initially.
-                */}
                 <img 
                     ref={imgRef}
                     src={src} 
@@ -166,24 +129,16 @@ const ImageCropper = ({ src, onCancel, onCrop }: { src: string, onCancel: () => 
                     onLoad={onImgLoad}
                     className="absolute pointer-events-none select-none origin-center transition-transform duration-75"
                     style={{
-                        // Center initially
                         top: '50%',
                         left: '50%',
-                        // Force contain logic via max-w/max-h
                         maxWidth: '100%',
                         maxHeight: '100%',
                         width: 'auto',
                         height: 'auto',
-                        // Apply user transforms. 
-                        // translate(-50%, -50%) centers the element's own anchor point.
-                        // translate(offset) moves it.
-                        // scale(zoom) zooms it.
                         transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px) scale(${zoom})`
                     }}
                     draggable={false}
                 />
-                
-                {/* Grid Overlay */}
                 <div className="absolute inset-0 pointer-events-none opacity-30 grid grid-cols-3 grid-rows-3 border border-white/10">
                     <div className="border-r border-white/50"></div>
                     <div className="border-r border-white/50"></div>
@@ -193,7 +148,6 @@ const ImageCropper = ({ src, onCancel, onCrop }: { src: string, onCancel: () => 
                 </div>
             </div>
 
-            {/* CONTROLS */}
             <div className="mt-8 w-full max-w-[600px] flex items-center gap-4 bg-white/10 p-4 rounded-xl backdrop-blur-sm">
                 <ZoomIn className="text-white" size={24} />
                 <input 
@@ -274,7 +228,7 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
     const [posterBlob, setPosterBlob] = useState<Blob | null>(null);
     const [posterPreviewUrl, setPosterPreviewUrl] = useState<string | null>(null);
 
-    // --- AUDIO / ELEVENLABS STATE ---
+    // --- AUDIO STATE (ElevenLabs Disabled) ---
     const [introText, setIntroText] = useState('');
     const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
     const [introAudioBlob, setIntroAudioBlob] = useState<Blob | null>(null);
@@ -404,58 +358,9 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
         return new Blob([u8arr], { type: mime });
     };
 
-    // --- ELEVENLABS GENERATION ---
+    // --- ELEVENLABS DISABLED STUB ---
     const handleGenerateAudio = async () => {
-        if (!introText.trim()) {
-            showToast('Wpisz tekst do wygenerowania!', 'error');
-            return;
-        }
-
-        const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
-        if (!apiKey) {
-            showToast('Brak klucza API ElevenLabs (VITE_ELEVENLABS_API_KEY)', 'error');
-            return;
-        }
-
-        setIsGeneratingAudio(true);
-        try {
-            // Rachel Voice ID: 21m00Tcm4TlvDq8ikWAM
-            const voiceId = '21m00Tcm4TlvDq8ikWAM'; 
-            
-            const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'audio/mpeg',
-                    'Content-Type': 'application/json',
-                    'xi-api-key': apiKey
-                },
-                body: JSON.stringify({
-                    text: introText,
-                    model_id: "eleven_multilingual_v2",
-                    voice_settings: {
-                        stability: 0.5,
-                        similarity_boost: 0.75
-                    }
-                })
-            });
-
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.detail?.message || 'Błąd API ElevenLabs');
-            }
-
-            const blob = await response.blob();
-            setIntroAudioBlob(blob);
-            const url = URL.createObjectURL(blob);
-            setIntroAudioUrl(url);
-            showToast('Audio wygenerowane pomyślnie!', 'success');
-
-        } catch (error: any) {
-            console.error(error);
-            showToast(`Błąd generowania: ${error.message}`, 'error');
-        } finally {
-            setIsGeneratingAudio(false);
-        }
+        showToast('Generator AI dostępny wkrótce! Zgłoś się do Administratora.', 'info');
     };
 
     // --- FORM HANDLERS ---
@@ -991,13 +896,13 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
              <h3 className="text-2xl font-black text-slate-900 mb-6">{selectedPartner ? 'Edytuj Partnera' : 'Nowy Partner'}</h3>
              
              <form onSubmit={handleSavePartner} className="space-y-6" noValidate>
-                {/* Intro Audio Section - NEW */}
+                {/* Intro Audio Section - ELEVENLABS STUB */}
                 <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-6 space-y-4">
                     <h4 className="font-black text-indigo-900 text-sm uppercase flex items-center gap-2">
                         <Mic size={14} /> Intro Audio (Runtime Composing)
                     </h4>
                     <p className="text-xs text-indigo-700/80 leading-relaxed">
-                        Wpisz tekst, który lektor (ElevenLabs) przeczyta jako intro. To nagranie zostanie automatycznie nałożone na wideo w aplikacji partnera.
+                        Wpisz tekst, który lektor (AI) przeczyta jako intro.
                     </p>
                     <div className="flex gap-2">
                         <input 
@@ -1010,10 +915,9 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                         <button 
                             type="button" 
                             onClick={handleGenerateAudio}
-                            disabled={isGeneratingAudio}
-                            className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                            className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-indigo-700 transition-colors flex items-center gap-2"
                         >
-                            {isGeneratingAudio ? <Loader2 className="animate-spin" size={16}/> : <Wand2 size={16} />}
+                            <Wand2 size={16} />
                             Generuj
                         </button>
                     </div>
@@ -1304,7 +1208,6 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
             <div className="max-w-6xl mx-auto animate-in slide-in-from-right-4 pb-20 relative">
                 {renderToast()}
                 
-                {/* CONTRACT PREVIEW MODAL (Available in Details too) */}
                 {viewContractUrl && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
                         <div className="bg-white rounded-[2rem] w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative">
@@ -1415,7 +1318,6 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                             {selectedPartner.Model === 'PROWIZJA' && (
                                 <InfoRow icon={<DollarSign size={18}/>} label="Cena Sprzedaży" value={selectedPartner.SellPrice ? `${selectedPartner.SellPrice} PLN` : 'Nie ustalono'} />
                             )}
-                            {/* New Contract Info */}
                             <InfoRow icon={<FileCheck size={18}/>} label="Status Umowy" value={selectedPartner.ContractStatus || 'BRAK'} />
                             {selectedPartner.ContractStatus === 'PODPISANA' && (
                                 <InfoRow icon={<Calendar size={18}/>} label="Ważna do" value={selectedPartner.ContractEndDate ? new Date(selectedPartner.ContractEndDate).toLocaleDateString() : '-'} />

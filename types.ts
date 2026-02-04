@@ -58,7 +58,8 @@ export interface Story {
   AgeGroup: string;
   CoverUrl?: string;
   DynamicLines?: any; // JSONB
-  Scenario?: any; // JSONB
+  Scenario?: any; // JSONB lub TEXT w zależności od etapu
+  Lektorzy?: any; // JSONB - Tablica lektorów (POPRAWIONE)
 }
 
 export type UserRole = 'ADMIN' | 'HANDLOWIEC' | 'PARTNER' | 'KLIENT';
