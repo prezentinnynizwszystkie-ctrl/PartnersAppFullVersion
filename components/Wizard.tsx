@@ -111,27 +111,79 @@ const Wizard: React.FC<WizardProps> = ({ onClose, primaryColor, accentColor, par
     }
   };
 
+  // --- ATOMIC SAVE LOGIC ---
   const handleSubmitOrder = async (wantsStory: boolean) => {
     setIsSubmitting(true);
     setSubmissionError(null);
-    console.log("Wizard: Starting submission...");
+    console.log("Wizard: Starting Atomic Submission...");
 
     try {
-      // 1. Marketing Permissions
-      const { error: marketingError } = await supabase
-        .schema('PartnersApp')
-        .from('MarketingPermissions')
-        .insert({
+      // 1. Generate a unique folder ID for this order (Frontend generated UUID)
+      const orderFolderId = crypto.randomUUID();
+      const bucketName = 'PartnersApp';
+      const storagePath = `Orders/${orderFolderId}`;
+      
+      const fileUrls: { PhotoUrl: string; PhotoUrl1: string; RecordUrl: string } = {
+          PhotoUrl: "",
+          PhotoUrl1: "",
+          RecordUrl: skipRecording ? "Universal" : ""
+      };
+
+      // 2. Upload Files FIRST (Parallel Uploads)
+      const uploadPromises = [];
+
+      if (childFile) {
+        const fileExt = childFile.name.split('.').pop();
+        const path = `${storagePath}/child.${fileExt}`;
+        uploadPromises.push(
+           supabase.storage.from(bucketName).upload(path, childFile)
+           .then(({ data, error }) => {
+              if (error) throw error;
+              // Build Public URL manually or via getPublicUrl
+              const { data: publicUrl } = supabase.storage.from(bucketName).getPublicUrl(path);
+              fileUrls.PhotoUrl = publicUrl.publicUrl;
+           })
+        );
+      }
+
+      if (partyFile) {
+         const fileExt = partyFile.name.split('.').pop();
+         const path = `${storagePath}/party.${fileExt}`;
+         uploadPromises.push(
+            supabase.storage.from(bucketName).upload(path, partyFile)
+            .then(({ data, error }) => {
+                if (error) throw error;
+                const { data: publicUrl } = supabase.storage.from(bucketName).getPublicUrl(path);
+                fileUrls.PhotoUrl1 = publicUrl.publicUrl;
+            })
+         );
+      }
+
+      if (audioBlob && !skipRecording) {
+         const path = `${storagePath}/wishes.webm`;
+         uploadPromises.push(
+            supabase.storage.from(bucketName).upload(path, audioBlob)
+            .then(({ data, error }) => {
+                if (error) throw error;
+                const { data: publicUrl } = supabase.storage.from(bucketName).getPublicUrl(path);
+                fileUrls.RecordUrl = publicUrl.publicUrl;
+            })
+         );
+      }
+
+      // Wait for all uploads to finish
+      await Promise.all(uploadPromises);
+
+      // 3. Create Marketing Permission Entry
+      await supabase.schema('PartnersApp').from('MarketingPermissions').insert({
           Name: parentName,
           Phone: parentPhone,
           Mail: parentEmail,
           MarketingAgree: marketingAgree,
           RegulationsAgree: regulationsAgree
-        });
+      });
 
-      if (marketingError) console.error("Marketing permissions error (non-fatal):", marketingError);
-
-      // 2. Prepare Questionnaire
+      // 4. Prepare Questionnaire JSON (Atomic - includes file URLs now)
       const questionnaire: any = {
         Hobby: hobby,
         KidAge: age,
@@ -145,96 +197,37 @@ const Wizard: React.FC<WizardProps> = ({ onClose, primaryColor, accentColor, par
         ExtraAttractions: selectedAttractions.join(', '),
         Avatar: currentAvatars[activeIndex] || "",
         ...guestList.reduce((acc, guest, index) => ({ ...acc, [`Guest${index + 1}`]: guest }), {}),
-        PhotoUrl: "",
-        PhotoUrl1: "",
-        RecordUrl: skipRecording ? "Universal" : "" 
+        
+        // Include URLs directly in the JSON
+        PhotoUrl: fileUrls.PhotoUrl,
+        PhotoUrl1: fileUrls.PhotoUrl1,
+        RecordUrl: fileUrls.RecordUrl,
+        
+        // Metadata for tracing
+        FrontendUUID: orderFolderId 
       };
 
-      // 3. Insert Order
-      const { data: orderData, error: orderError } = await supabase
+      // 5. Single ATOMIC Insert into Database
+      const { error: orderError } = await supabase
         .schema('birthdays')
         .from('StoryOrders')
         .insert({
           StoryId: selectedStoryId,
           PartnerId: partner.Id,
           Questionnaire: questionnaire,
-          Status: 'QuestionnaireToApprove' 
-        })
-        .select() 
-        .single();
+          Status: 'QuestionnaireToApprove',
+          // Optionally map columns if they exist in schema, but Questionnaire JSON is primary
+          PhotoUrl: fileUrls.PhotoUrl,
+          PhotoUrl1: fileUrls.PhotoUrl1,
+          RecordUrl: fileUrls.RecordUrl
+        });
 
       if (orderError) throw orderError;
-      if (!orderData) throw new Error("Nie udało się utworzyć zamówienia.");
-      
-      const orderId = orderData.OrderId || orderData.orderid || orderData.id || orderData.ID || orderData.Id;
-      console.log("Order created with ID:", orderId);
 
-      // 4. File Uploads
-      const updates: any = {};
-      const storagePath = `Orders/${orderId}`;
-      const bucketName = 'PartnersApp';
-      const uploadPromises = [];
+      console.log("Atomic Submission Successful.");
 
-      if (childFile) {
-        const fileExt = childFile.name.split('.').pop();
-        uploadPromises.push(
-           supabase.storage.from(bucketName).upload(`${storagePath}/child.${fileExt}`, childFile, { upsert: true })
-           .then((res) => {
-              const data = res.data;
-              if(data) {
-                 const { data: publicUrl } = supabase.storage.from(bucketName).getPublicUrl(data.path);
-                 updates.PhotoUrl = publicUrl.publicUrl;
-              }
-           })
-        );
-      }
-
-      if (partyFile) {
-         const fileExt = partyFile.name.split('.').pop();
-         uploadPromises.push(
-            supabase.storage.from(bucketName).upload(`${storagePath}/party.${fileExt}`, partyFile, { upsert: true })
-            .then((res) => {
-                const data = res.data;
-                if(data) {
-                    const { data: publicUrl } = supabase.storage.from(bucketName).getPublicUrl(data.path);
-                    updates.PhotoUrl1 = publicUrl.publicUrl;
-                }
-            })
-         );
-      }
-
-      if (audioBlob && !skipRecording) {
-         uploadPromises.push(
-            supabase.storage.from(bucketName).upload(`${storagePath}/wishes.webm`, audioBlob, { upsert: true })
-            .then((res) => {
-                const data = res.data;
-                if(data) {
-                    const { data: publicUrl } = supabase.storage.from(bucketName).getPublicUrl(data.path);
-                    updates.RecordUrl = publicUrl.publicUrl;
-                }
-            })
-         );
-      }
-
-      await Promise.all(uploadPromises);
-
-      // 5. Update Order with File URLs
-      if (Object.keys(updates).length > 0) {
-        const finalQuestionnaire = { ...questionnaire, ...updates };
-        const matchQuery: any = {};
-        if (orderData.OrderId) matchQuery.OrderId = orderId;
-        else matchQuery.id = orderId;
-
-        await supabase
-          .schema('birthdays')
-          .from('StoryOrders')
-          .update({ Questionnaire: finalQuestionnaire })
-          .match(matchQuery);
-      }
-
-      // 6. AI Generation (Jeśli użytkownik chce bajkę)
+      // 6. AI Generation (Optional, Client-side view)
       if (wantsStory && selectedStoryId) {
-         console.log("Użytkownik chce bajkę. Wywołuję generator...");
          try {
              const story = await generatePersonalizedStory(selectedStoryId, {
                  name,
@@ -246,7 +239,7 @@ const Wizard: React.FC<WizardProps> = ({ onClose, primaryColor, accentColor, par
              });
              setGeneratedStoryText(story);
          } catch (aiError) {
-             console.error("Critical AI Failure (handled):", aiError);
+             console.error("AI Gen Error:", aiError);
              setGeneratedStoryText(null); 
          }
       } else {
@@ -257,7 +250,7 @@ const Wizard: React.FC<WizardProps> = ({ onClose, primaryColor, accentColor, par
 
     } catch (error: any) {
       console.error("Submission fatal error:", error);
-      setSubmissionError(error.message || "Wystąpił nieznany błąd podczas zapisu.");
+      setSubmissionError(error.message || "Wystąpił błąd podczas zapisu.");
     } finally {
       setIsSubmitting(false);
     }
@@ -290,9 +283,9 @@ const Wizard: React.FC<WizardProps> = ({ onClose, primaryColor, accentColor, par
         <div className="absolute inset-0 z-[60] bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center">
           <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
           <p className="text-xl font-bold text-slate-800">
-             {step === 8 ? "Zapisywanie..." : "Przetwarzanie..."}
+             Zapisywanie zamówienia...
           </p>
-          {step === 8 && <p className="text-sm text-slate-500 font-medium mt-2">To może chwilę potrwać (AI pracuje nad bajką!)</p>}
+          <p className="text-sm text-slate-500 font-medium mt-2">Wysyłamy pliki i tworzymy profil.</p>
         </div>
       )}
 
@@ -418,6 +411,7 @@ const Wizard: React.FC<WizardProps> = ({ onClose, primaryColor, accentColor, par
                     name={name} 
                     onClose={onClose} 
                     generatedStory={generatedStoryText}
+                    childFile={childFile}
                 />
             )}
           </div>

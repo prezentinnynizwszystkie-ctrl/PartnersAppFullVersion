@@ -9,6 +9,7 @@ import PartnerLanding from './components/PartnerLanding';
 import ArticleView from './components/ArticleView';
 import GeneratedTale from './components/GeneratedTale';
 import OfferB2BApp from './OfferB2B/App';
+import StoryGenerator from './components/StoryGenerator'; // Import Generatora
 import { VersionChecker } from './components/VersionChecker';
 
 const App: React.FC = () => {
@@ -30,6 +31,9 @@ const App: React.FC = () => {
             
             {/* The Main Hub (Dashboard) */}
             <Route path="/hub" element={<HubView />} />
+            
+            {/* Story Generator Tool (Admin) */}
+            <Route path="/admin/generator" element={<StoryGenerator />} />
             
             {/* Test Route for Generated Tale */}
             <Route path="/test/generated-tale" element={<GeneratedTale />} />

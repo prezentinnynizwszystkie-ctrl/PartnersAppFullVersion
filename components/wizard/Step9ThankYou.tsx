@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Heart, Sparkles, CheckCircle2, BookOpen, Printer, Share2 } from 'lucide-react';
 
@@ -7,9 +7,26 @@ interface Step9Props {
   name: string;
   onClose: () => void;
   generatedStory?: string | null;
+  childFile?: File | null;
 }
 
-export const Step9ThankYou: React.FC<Step9Props> = ({ name, onClose, generatedStory }) => {
+export const Step9ThankYou: React.FC<Step9Props> = ({ name, onClose, generatedStory, childFile }) => {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Generate a local preview URL for the file to avoid permissions issues with Supabase Storage
+  useEffect(() => {
+    if (childFile) {
+        const url = URL.createObjectURL(childFile);
+        setPreviewUrl(url);
+        
+        // Cleanup the URL to avoid memory leaks
+        return () => {
+            URL.revokeObjectURL(url);
+        };
+    } else {
+        setPreviewUrl(null);
+    }
+  }, [childFile]);
 
   // Function to render the story with book styling
   const renderStoryContent = (text: string) => {
@@ -33,6 +50,15 @@ export const Step9ThankYou: React.FC<Step9Props> = ({ name, onClose, generatedSt
             <BookOpen size={20} />
             <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Scenariusz Audiobajki</span>
          </div>
+
+         {/* Hero Image if available */}
+         {previewUrl && (
+             <div className="flex justify-center mb-8">
+                 <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-slate-100 shadow-md overflow-hidden">
+                     <img src={previewUrl} alt="Bohater" className="w-full h-full object-cover" />
+                 </div>
+             </div>
+         )}
 
          <h1 className="text-2xl md:text-3xl font-display font-black text-slate-900 mb-6 text-center leading-tight">
            {title}
@@ -114,12 +140,21 @@ export const Step9ThankYou: React.FC<Step9Props> = ({ name, onClose, generatedSt
         className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-8 min-h-[400px]"
     >
         <div className="relative">
-        <div className="w-32 h-32 bg-white rounded-full shadow-2xl flex items-center justify-center text-red-500 animate-bounce">
-            <Heart size={64} fill="currentColor" />
-        </div>
-        <div className="absolute -top-4 -right-4 bg-yellow-400 text-white p-3 rounded-full shadow-lg animate-pulse">
-            <Sparkles size={24} />
-        </div>
+            {previewUrl ? (
+                <div className="w-32 h-32 rounded-full shadow-2xl border-4 border-white overflow-hidden mx-auto">
+                    <img src={previewUrl} alt="Bohater" className="w-full h-full object-cover" />
+                </div>
+            ) : (
+                <div className="w-32 h-32 bg-white rounded-full shadow-2xl flex items-center justify-center text-red-500 animate-bounce mx-auto">
+                    <Heart size={64} fill="currentColor" />
+                </div>
+            )}
+            
+            {!previewUrl && (
+                <div className="absolute -top-4 -right-4 bg-yellow-400 text-white p-3 rounded-full shadow-lg animate-pulse">
+                    <Sparkles size={24} />
+                </div>
+            )}
         </div>
 
         <div className="space-y-4">
