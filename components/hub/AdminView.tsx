@@ -3,11 +3,12 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Partner, Handlowiec } from '@/types';
 import { ChevronRight, Briefcase, ArrowRight, Search, MapPin, User, Wallet, CheckCircle2, XCircle, AlertCircle, Smartphone, ExternalLink, Rocket, X, FileCheck, Calendar } from 'lucide-react';
+import { OrdersList } from './OrdersList';
 
 interface AdminViewProps {
     partners: Partner[];
     salespeople: Handlowiec[];
-    activeSection: 'PARTNERS' | 'SALES';
+    activeSection: 'PARTNERS' | 'SALES' | 'ORDERS';
     onViewPartner: (slug: string) => void;
     onViewSalesperson: (person: Handlowiec) => void;
 }
@@ -49,6 +50,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ partners, salespeople, act
 
         return matchesSearch && matchesStatus;
     });
+
+    if (activeSection === 'ORDERS') {
+        return <OrdersList partners={partners} />;
+    }
 
     if (activeSection === 'PARTNERS') {
         return (

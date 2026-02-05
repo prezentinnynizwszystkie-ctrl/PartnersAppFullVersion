@@ -62,6 +62,18 @@ export interface Story {
   Lektorzy?: any; // JSONB - Tablica lektorów (POPRAWIONE)
 }
 
+export interface StoryOrder {
+  OrderId: number;
+  created_at: string;
+  Status: string;
+  Questionnaire: any; // JSONB
+  StoryId: number | null;
+  PartnerId: number | null;
+  PhotoUrl?: string | null;
+  PhotoUrl1?: string | null;
+  RecordUrl?: string | null;
+}
+
 export type UserRole = 'ADMIN' | 'HANDLOWIEC' | 'PARTNER' | 'KLIENT';
 
 export interface UserProfile {

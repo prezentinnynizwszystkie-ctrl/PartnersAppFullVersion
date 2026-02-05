@@ -2,13 +2,13 @@
 import React from 'react';
 import { UserRole } from '@/types';
 import { Link } from 'react-router-dom';
-import { LayoutDashboard, Users, UserCircle, LogOut, FileText, ArrowRight, Receipt, Settings, BookOpen, Wand2 } from 'lucide-react';
+import { LayoutDashboard, Users, UserCircle, LogOut, FileText, ArrowRight, Receipt, Settings, BookOpen, Wand2, ShoppingCart } from 'lucide-react';
 
 interface HubSidebarProps {
     role: UserRole;
     session: any;
-    adminSection?: 'PARTNERS' | 'SALES';
-    setAdminSection?: (section: 'PARTNERS' | 'SALES') => void;
+    adminSection?: 'PARTNERS' | 'SALES' | 'ORDERS';
+    setAdminSection?: (section: 'PARTNERS' | 'SALES' | 'ORDERS') => void;
     viewingAsSlug?: string | null;
     viewingSalesperson?: any;
     activeTab?: 'OFFER' | 'SETTLEMENTS' | 'MODS';
@@ -82,6 +82,17 @@ export const HubSidebar: React.FC<HubSidebarProps> = ({
                             >
                                 <Wand2 size={20} /> Generator Bajek
                             </Link>
+
+                            <button 
+                                onClick={() => {
+                                    setAdminSection('ORDERS');
+                                    onResetView();
+                                    setShowInstructions(false);
+                                }}
+                                className={`w-full text-left px-4 py-3 rounded-xl font-bold transition-colors flex items-center gap-3 ${adminSection === 'ORDERS' && !viewingAsSlug && !viewingSalesperson && !showInstructions ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}
+                            >
+                                <ShoppingCart size={20} /> Lista Zamówień
+                            </button>
                         </>
                     )}
 

@@ -5,7 +5,7 @@ import { supabase } from '../../../utils/supabaseClient';
 import { 
   ArrowLeft, User, Globe, Save, Loader2, Building2, Lock, 
   CheckCircle2, ImagePlus, X, Image as ImageIcon, Sparkles, 
-  Eye, BookOpen, Music, Clock, Mic2, LayoutList, ChevronRight, ZoomIn, Code, Database
+  Eye, BookOpen, Music, Clock, Mic2, LayoutList, ChevronRight, ZoomIn, Code, Database, AlignLeft, Hash
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -462,15 +462,84 @@ export const ProductionStep: React.FC<ProductionStepProps> = ({ state, onUpdateS
 
                 {/* Modal Content - Switcher */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50 relative">
-                    {/* ... (Timeline rendering logic unchanged) ... */}
+                    
+                    {/* --- VISUAL TIMELINE VIEW --- */}
                     {modalView === 'TIMELINE' && (
-                        <div className="p-4 md:p-6 max-w-4xl mx-auto relative">
-                            {/* ... Timeline rendering ... */}
-                            <div className="text-center text-slate-400 py-10">Oś czasu dostępna w pełnej wersji</div>
+                        <div className="p-4 md:p-6 max-w-4xl mx-auto relative space-y-6 pb-20">
+                            {state.blocks.length === 0 ? (
+                                <div className="text-center text-slate-400 py-10">Brak elementów w scenariuszu.</div>
+                            ) : (
+                                state.blocks.map((block) => {
+                                    // Find lector name
+                                    const lector = state.lectors.find(l => l.id === block.lectorId)?.name || "Lektor";
+                                    const isDynamic = block.code?.startsWith('Z');
+                                    
+                                    // Get active text based on selected gender in timeline
+                                    const content = block.contentVariants?.[activeGender] || block.content;
+
+                                    return (
+                                        <div key={block.id} className="relative pl-8 border-l-2 border-slate-200 ml-4 group">
+                                            <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-200 border-2 border-white group-hover:bg-indigo-300 transition-colors"></div>
+                                            
+                                            {block.type === 'EPISODE' && (
+                                                <div className="mt-[-6px] mb-4 pt-2">
+                                                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1 block">Epizod</span>
+                                                    <h3 className="text-2xl font-black text-indigo-900 leading-tight">{content}</h3>
+                                                </div>
+                                            )}
+
+                                            {block.type === 'CHAPTER' && (
+                                                <div className="mt-[-4px] mb-4 pt-1">
+                                                    <h4 className="text-lg font-bold text-slate-700 flex items-center gap-2">
+                                                        <AlignLeft size={18} className="text-blue-400"/> {content}
+                                                    </h4>
+                                                </div>
+                                            )}
+
+                                            {block.type === 'LINE' && (
+                                                <div className={`p-4 rounded-xl border transition-all ${isDynamic ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200 hover:border-blue-200 hover:shadow-sm'} shadow-sm relative overflow-hidden`}>
+                                                    {isDynamic && <div className="absolute top-0 right-0 w-8 h-8 bg-amber-100 rounded-bl-xl flex items-center justify-center text-amber-500"><Sparkles size={14}/></div>}
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded text-white ${isDynamic ? 'bg-amber-500' : 'bg-slate-400'}`}>
+                                                                {block.code || 'TXT'}
+                                                            </span>
+                                                            <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
+                                                                <Mic2 size={12}/> {lector}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-sm text-slate-800 leading-relaxed font-medium">
+                                                        {content}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {block.type === 'BACKGROUND' && (
+                                                <div className="p-3 bg-pink-50 border border-pink-100 rounded-lg inline-flex items-center gap-3 shadow-sm">
+                                                    <Music size={16} className="text-pink-500"/>
+                                                    <span className="text-sm font-bold text-pink-700">{content}</span>
+                                                    {block.metadata?.fadeIn && (
+                                                        <span className="text-[10px] font-mono bg-white px-1.5 rounded text-pink-400 border border-pink-100">
+                                                            In: {block.metadata.fadeIn}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {block.type === 'PAUSE' && (
+                                                <div className="p-2 bg-slate-100 border border-slate-200 border-dashed rounded-lg inline-flex items-center gap-2 text-xs font-mono text-slate-500">
+                                                    <Clock size={14}/> Pauza {block.metadata?.duration}s
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })
+                            )}
                         </div>
                     )}
                     
-                    {/* Simplified View Logic for code brevity in this update */}
+                    {/* SQL / RAW VIEWS */}
                     {modalView !== 'TIMELINE' && (
                         <div className="p-4 md:p-6 h-full bg-slate-900">
                             <pre className="text-xs font-mono text-white leading-relaxed overflow-x-auto whitespace-pre-wrap">
