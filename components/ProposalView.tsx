@@ -7,7 +7,7 @@ import {
   Play, Phone, Mail, Brain, Headphones, 
   CheckCircle2, DollarSign, ExternalLink, ChevronLeft, Loader2,
   Gem, Trophy, Megaphone, ShieldCheck, Layers, Briefcase, Pause,
-  ChevronRight, ArrowRight
+  ChevronRight, ArrowRight, Volume2
 } from 'lucide-react';
 
 const ProposalView: React.FC = () => {
@@ -130,8 +130,8 @@ const ProposalView: React.FC = () => {
   // Dane Handlowca (Fallback jeśli brak zdjęcia w bazie)
   const salesPhotoUrl = salesperson?.PhotoUrl || "https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/Handlowcy/Siwy1.webp";
 
-  // Audio URL source logic
-  const audioSource = partner.IntroUrl || "https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/Others/Probki/maluchy%20background.mp3";
+  // Placeholder Audio Link (Zgodnie z prośbą)
+  const articleAudioUrl = "https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/Others/Probki/maluchy%20background.mp3";
 
   const benefits = [
     {
@@ -514,53 +514,81 @@ const ProposalView: React.FC = () => {
           </div>
       </section>
 
-      {/* 6. PSYCHOLOGY & AUDIO */}
+      {/* 6. PSYCHOLOGY & AUDIO (UPDATED PLAYER) */}
       <section className="py-20 px-6 bg-[#f8f9fc] relative border-t border-slate-200">
           <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
               
               <div className="order-2 md:order-1 relative">
                   <div className="absolute inset-0 bg-blue-600 rounded-full blur-[100px] opacity-10" />
-                  <div className="relative bg-white p-8 md:p-10 rounded-[2.5rem] shadow-xl border border-slate-100">
-                      <div className="flex items-center gap-4 mb-6">
-                          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
-                              <Headphones size={24} />
-                          </div>
-                          <div>
-                              <div className="text-xs font-black text-slate-400 uppercase tracking-widest">Audio Materiał</div>
-                              <div className="font-bold text-slate-900">Dlaczego to działa?</div>
-                          </div>
-                      </div>
-                      
-                      {/* Fake Waveform */}
-                      <div className="flex items-center gap-1 h-12 mb-8 justify-center opacity-50">
-                          {[...Array(20)].map((_, i) => (
-                              <motion.div 
-                                  key={i}
-                                  animate={isPlayingAudio ? { height: [16, 48, 16] } : { height: 16 }}
-                                  transition={{ repeat: Infinity, duration: 1, delay: i * 0.05 }}
-                                  className="w-1.5 bg-slate-900 rounded-full"
-                              />
-                          ))}
-                      </div>
+                  
+                  {/* NEW MODERN AUDIO PLAYER CARD */}
+                  <div className="relative bg-white p-8 md:p-10 rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
+                      {/* Decoration */}
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
 
-                      <div className="flex justify-center">
-                          <button 
-                              onClick={toggleAudio}
-                              className="w-16 h-16 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
-                          >
-                              {isPlayingAudio ? <div className="w-4 h-4 bg-white rounded-sm" /> : <Play size={24} className="ml-1" fill="white" />}
-                          </button>
+                      <div className="relative z-10">
+                          <div className="flex justify-between items-start mb-8">
+                              <div className="flex items-center gap-4">
+                                  <div className="w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-lg">
+                                      <Headphones size={24} />
+                                  </div>
+                                  <div>
+                                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Wersja Audio</div>
+                                      <h3 className="font-bold text-slate-900 text-lg leading-tight">Posłuchaj artykułu</h3>
+                                  </div>
+                              </div>
+                              {/* Duration badge (fake for now, or real if loaded) */}
+                              <div className="px-3 py-1 bg-slate-100 rounded-full text-xs font-bold text-slate-500 border border-slate-200">
+                                  03:45
+                              </div>
+                          </div>
+
+                          {/* Visualizer & Controls Row */}
+                          <div className="flex items-center gap-6">
+                              <button
+                                  onClick={toggleAudio}
+                                  className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-xl hover:bg-blue-700 hover:scale-105 transition-all flex-shrink-0"
+                              >
+                                  {isPlayingAudio ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
+                              </button>
+
+                              <div className="flex-1 h-12 flex items-center gap-1 justify-between opacity-80">
+                                  {[...Array(24)].map((_, i) => (
+                                      <motion.div
+                                          key={i}
+                                          animate={isPlayingAudio ? {
+                                              height: [
+                                                  Math.random() * 15 + 8,
+                                                  Math.random() * 35 + 10,
+                                                  Math.random() * 15 + 8
+                                              ]
+                                          } : { height: 8 }}
+                                          transition={{
+                                              repeat: Infinity,
+                                              duration: 0.8,
+                                              ease: "easeInOut",
+                                              delay: i * 0.05
+                                          }}
+                                          className={`w-1.5 rounded-full ${i % 3 === 0 ? 'bg-blue-500' : 'bg-slate-300'}`}
+                                      />
+                                  ))}
+                              </div>
+                          </div>
+                          
+                          <div className="mt-6 pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-medium text-slate-400">
+                              <Volume2 size={14} />
+                              <span>Czyta: Lektor AI (Model Neural2)</span>
+                          </div>
                       </div>
-                      
-                      {/* Audio URL from DB or Fallback - ADDED KEY FOR REFRESH */}
-                      <audio 
-                          key={audioSource} 
-                          ref={audioRef} 
-                          src={audioSource} 
-                          onEnded={() => setIsPlayingAudio(false)} 
-                          className="hidden" 
-                      />
                   </div>
+                  
+                  {/* Hidden Audio Element with Placeholder Link */}
+                  <audio 
+                      ref={audioRef} 
+                      src={articleAudioUrl} 
+                      onEnded={() => setIsPlayingAudio(false)} 
+                      className="hidden" 
+                  />
               </div>
 
               <div className="order-1 md:order-2 space-y-6">
@@ -603,7 +631,7 @@ const ProposalView: React.FC = () => {
                   
                   <div className="flex flex-col sm:flex-row gap-4 pt-4">
                       <Link 
-                          to={`/${partner.Slug}/oferta-b2b`} 
+                          to={`/demo/oferta-b2b`} 
                           target="_blank"
                           className="px-8 py-4 bg-[#fccb00] text-black rounded-2xl font-black text-lg hover:bg-[#e5b800] transition-transform hover:scale-105 shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2"
                       >
@@ -611,7 +639,7 @@ const ProposalView: React.FC = () => {
                       </Link>
                       
                       <Link 
-                          to={`/${partner.Slug}`} 
+                          to={`/demo`} 
                           target="_blank"
                           className="px-8 py-4 bg-white/10 text-white border border-white/20 rounded-2xl font-bold text-lg hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
                       >
