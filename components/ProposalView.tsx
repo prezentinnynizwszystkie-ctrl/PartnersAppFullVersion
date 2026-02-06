@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { 
   Play, Phone, Mail, Brain, Headphones, 
   CheckCircle2, DollarSign, ExternalLink, ChevronLeft, Loader2,
-  Gem, Trophy, Megaphone, ShieldCheck, Layers, Briefcase
+  Gem, Trophy, Megaphone, ShieldCheck, Layers, Briefcase, Pause
 } from 'lucide-react';
 
 const ProposalView: React.FC = () => {
@@ -64,12 +64,24 @@ const ProposalView: React.FC = () => {
 
   const toggleAudio = () => {
       if (!audioRef.current) return;
+      
       if (isPlayingAudio) {
           audioRef.current.pause();
           setIsPlayingAudio(false);
       } else {
-          audioRef.current.play();
-          setIsPlayingAudio(true);
+          // Reset if ended
+          if (audioRef.current.ended) {
+              audioRef.current.currentTime = 0;
+          }
+          const playPromise = audioRef.current.play();
+          if (playPromise !== undefined) {
+              playPromise
+                  .then(() => setIsPlayingAudio(true))
+                  .catch(error => {
+                      console.error("Audio play failed:", error);
+                      setIsPlayingAudio(false);
+                  });
+          }
       }
   };
 
@@ -96,6 +108,9 @@ const ProposalView: React.FC = () => {
   
   // Dane Handlowca (Fallback jeśli brak zdjęcia w bazie)
   const salesPhotoUrl = salesperson?.PhotoUrl || "https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/Handlowcy/Siwy1.webp";
+
+  // Audio URL source logic
+  const audioSource = partner.IntroUrl || "https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/Others/Probki/maluchy%20background.mp3";
 
   const benefits = [
     {
@@ -414,8 +429,14 @@ const ProposalView: React.FC = () => {
                           </button>
                       </div>
                       
-                      {/* Audio URL from DB or Fallback */}
-                      <audio ref={audioRef} src={partner.IntroUrl || "https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/Others/Probki/maluchy%20background.mp3"} onEnded={() => setIsPlayingAudio(false)} className="hidden" />
+                      {/* Audio URL from DB or Fallback - ADDED KEY FOR REFRESH */}
+                      <audio 
+                          key={audioSource} 
+                          ref={audioRef} 
+                          src={audioSource} 
+                          onEnded={() => setIsPlayingAudio(false)} 
+                          className="hidden" 
+                      />
                   </div>
               </div>
 
@@ -476,16 +497,16 @@ const ProposalView: React.FC = () => {
                   </div>
               </div>
 
-              {/* MOCKUP TELEFONU */}
+              {/* MOCKUP TELEFONU Z LIVE PREVIEW IFRAME */}
               <div className="relative w-[300px] md:w-[360px] aspect-[9/19] bg-slate-800 rounded-[3rem] border-[8px] border-slate-700 shadow-2xl overflow-hidden shrink-0 transform rotate-[-2deg] hover:rotate-0 transition-transform duration-500">
                   {/* Pasek statusu fake */}
                   <div className="absolute top-0 inset-x-0 h-6 bg-black z-20 flex justify-center">
                       <div className="w-1/3 h-full bg-black rounded-b-xl" />
                   </div>
                   
-                  {/* IFRAME */}
+                  {/* IFRAME: Pointing to /#/slug to load the real app in SPA mode */}
                   <iframe 
-                      src={`/${partner.Slug}`} 
+                      src={`/#/${partner.Slug}`} 
                       className="w-full h-full bg-white"
                       title="Podgląd Aplikacji"
                   />
