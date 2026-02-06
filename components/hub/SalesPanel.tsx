@@ -218,6 +218,7 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
     
     // File State
     const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [proposalPhotoFile, setProposalPhotoFile] = useState<File | null>(null); // NOWE: Stan dla pliku propozycji
     const [contractFile, setContractFile] = useState<File | null>(null); 
     const [submitting, setSubmitting] = useState(false);
 
@@ -412,6 +413,7 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
             setSelectedPartner(null);
         }
         setLogoFile(null);
+        setProposalPhotoFile(null); // Reset
         setContractFile(null);
         setPosterBlob(null);
         setPosterPreviewUrl(null);
@@ -517,6 +519,7 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
             let photoUrl = selectedPartner?.PhotoUrl || null; 
             let contractUrl = selectedPartner?.UmowaUrl || null;
             let introUrl = selectedPartner?.IntroUrl || null;
+            let proposalPhotoUrl = selectedPartner?.ProposalPhotoUrl || null; // NEW
 
             // 1. Upload Logo
             if (logoFile) {
@@ -546,7 +549,17 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                 introUrl = `${publicUrl.publicUrl}?t=${Date.now()}`;
             }
 
-            // 4. Upload Contract (Method A: File)
+            // 4. Upload Proposal Photo (NEW)
+            if (proposalPhotoFile) {
+                const ext = proposalPhotoFile.name.split('.').pop();
+                const path = `${basePath}/ProposalPhoto.${ext}`;
+                const { error: uploadError } = await supabase.storage.from('PartnersApp').upload(path, proposalPhotoFile, { upsert: true });
+                if (uploadError) throw uploadError;
+                const { data: publicUrl } = supabase.storage.from('PartnersApp').getPublicUrl(path);
+                proposalPhotoUrl = `${publicUrl.publicUrl}?t=${Date.now()}`;
+            }
+
+            // 5. Upload Contract (Method A: File)
             if (contractFile) {
                 const ext = contractFile.name.split('.').pop();
                 const path = `${basePath}/${slugFolder.toUpperCase()}_UMOWA.${ext}`;
@@ -556,7 +569,7 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                 contractUrl = `${publicUrl.publicUrl}?t=${Date.now()}`;
             }
 
-            // 5. Upload Contract (Method B: Camera Pages)
+            // 6. Upload Contract (Method B: Camera Pages)
             if (capturedPages.length > 0) {
                 const uploadedPagesUrls: string[] = [];
                 for (let i = 0; i < capturedPages.length; i++) {
@@ -589,7 +602,8 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                 Miasto: formData.city,
                 LogoUrl: logoUrl,
                 PhotoUrl: photoUrl, 
-                IntroUrl: introUrl, // Save Audio URL
+                IntroUrl: introUrl, 
+                ProposalPhotoUrl: proposalPhotoUrl, // SAVE TO DB
                 UmowaUrl: contractUrl,
                 SprzedazIlosc: formData.model === 'PAKIET' ? formData.packetAmount : (selectedPartner?.SprzedazIlosc || 0),
                 SellPrice: formData.model === 'PROWIZJA' && formData.sellPrice !== '' ? Number(formData.sellPrice) : (selectedPartner?.SellPrice || null),
@@ -1136,6 +1150,34 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                      </div>
                 </div>
 
+                {/* NOWE: Proposal Photo (Zdjęcie w Ofercie) */}
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Zdjęcie do Oferty (Propozycja)</label>
+                    <div className="flex gap-4 items-center">
+                        <div className="flex-1 border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:bg-slate-50 transition-colors relative h-24 flex flex-col items-center justify-center overflow-hidden">
+                            <input type="file" accept="image/*" onChange={e => setProposalPhotoFile(e.target.files?.[0] || null)} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
+                            <div className="flex flex-col items-center gap-1">
+                                {proposalPhotoFile ? (
+                                    <>
+                                        <CheckCircle2 className="text-green-500" />
+                                        <span className="text-xs font-bold text-slate-500 truncate max-w-full">{proposalPhotoFile.name}</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Upload className="text-slate-300" />
+                                        <span className="text-xs font-bold text-slate-500 truncate max-w-full">Wgraj (zastąpi domyślne)</span>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                        {selectedPartner?.ProposalPhotoUrl && !proposalPhotoFile && (
+                            <div className="w-24 h-24 rounded-xl border border-slate-200 p-1 bg-white flex flex-col items-center justify-center text-center overflow-hidden">
+                                <img src={selectedPartner.ProposalPhotoUrl} alt="Proposal" className="w-full h-full object-cover" />
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Umowa (Dokument)</label>
                     <div className="flex flex-col gap-2">
@@ -1327,6 +1369,7 @@ export const SalesPanel: React.FC<SalesPanelProps> = ({ salespersonId, salespers
                             <InfoRow icon={<Upload size={18}/>} label="Logo" value={selectedPartner.LogoUrl} isFile />
                             <InfoRow icon={<ImageIcon size={18}/>} label="Poster (21:9)" value={selectedPartner.PhotoUrl} isFile />
                             <InfoRow icon={<Mic size={18}/>} label="Intro Audio" value={selectedPartner.IntroUrl} isFile />
+                            <InfoRow icon={<ImageIcon size={18}/>} label="Zdjęcie do Oferty" value={selectedPartner.ProposalPhotoUrl} isFile />
                             <InfoRow icon={<FileText size={18}/>} label="Plik Umowy" value={selectedPartner.UmowaUrl} isFile />
                         </div>
                     </div>

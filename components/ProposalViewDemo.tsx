@@ -454,7 +454,7 @@ const ProposalViewDemo: React.FC = () => {
               </div>
 
               {/* MOCKUP TELEFONU */}
-              <div className="relative w-[300px] md:w-[360px] aspect-[9/19] bg-slate-800 rounded-[3rem] border-[8px] border-slate-700 shadow-2xl overflow-hidden shrink-0 transform rotate-[-2deg] hover:rotate-0 transition-transform duration-500">
+              <div className="relative w-[300px] md:w-[360px] aspect-[9/16] bg-slate-800 rounded-[2.5rem] border-[8px] border-slate-700 shadow-2xl overflow-hidden shrink-0 transform rotate-[-2deg] hover:rotate-0 transition-transform duration-500">
                   {/* Pasek statusu fake */}
                   <div className="absolute top-0 inset-x-0 h-6 bg-black z-20 flex justify-center">
                       <div className="w-1/3 h-full bg-black rounded-b-xl" />
