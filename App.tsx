@@ -11,6 +11,8 @@ import GeneratedTale from './components/GeneratedTale';
 import OfferB2BApp from './OfferB2B/App';
 import StoryGenerator from './components/StoryGenerator'; // Import Generatora
 import { VersionChecker } from './components/VersionChecker';
+import ProposalView from './components/ProposalView'; // Stary widok
+import ProposalViewDemo from './components/ProposalViewDemo'; // NOWY SZTYWNY WIDOK
 
 const App: React.FC = () => {
   return (
@@ -26,6 +28,9 @@ const App: React.FC = () => {
         
         <HashRouter>
           <Routes>
+            {/* STATIC DEMO ROUTE - MUST BE FIRST TO AVOID CONFLICTS */}
+            <Route path="/demo-view" element={<ProposalViewDemo />} />
+
             {/* Entry Point: Login Screen */}
             <Route path="/" element={<LoginView />} />
             
@@ -43,6 +48,9 @@ const App: React.FC = () => {
 
             {/* New Route: Personalized B2B Offer */}
             <Route path="/:slug/oferta-b2b" element={<OfferB2BApp />} />
+
+            {/* NEW: Personalized Proposal Summary (Post-meeting) - OLD DYNAMIC */}
+            <Route path="/:slug/propozycja" element={<ProposalView />} />
 
             {/* The Wizard (Old PartnerView) moved to a sub-route */}
             <Route path="/:slug/kreator" element={<PartnerView />} />

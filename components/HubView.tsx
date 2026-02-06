@@ -31,7 +31,7 @@ const HubView: React.FC = () => {
   
   // --- VIEW STATE (Navigation) ---
   // ADDED 'ORDERS' here
-  const [adminSection, setAdminSection] = useState<'PARTNERS' | 'SALES' | 'ORDERS'>('PARTNERS');
+  const [adminSection, setAdminSection] = useState<'PARTNERS' | 'SALES' | 'ORDERS' | 'MAIL'>('PARTNERS');
   
   // Impersonation State
   const [viewingAsSlug, setViewingAsSlug] = useState<string | null>(null);

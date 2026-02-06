@@ -2,13 +2,14 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Partner, Handlowiec } from '@/types';
-import { ChevronRight, Briefcase, ArrowRight, Search, MapPin, User, Wallet, CheckCircle2, XCircle, AlertCircle, Smartphone, ExternalLink, Rocket, X, FileCheck, Calendar } from 'lucide-react';
+import { ChevronRight, Briefcase, ArrowRight, Search, MapPin, User, Wallet, CheckCircle2, XCircle, AlertCircle, Smartphone, ExternalLink, Rocket, X, FileCheck, Calendar, Gift } from 'lucide-react';
 import { OrdersList } from './OrdersList';
+import { AdminMailView } from './AdminMailView';
 
 interface AdminViewProps {
     partners: Partner[];
     salespeople: Handlowiec[];
-    activeSection: 'PARTNERS' | 'SALES' | 'ORDERS';
+    activeSection: 'PARTNERS' | 'SALES' | 'ORDERS' | 'MAIL';
     onViewPartner: (slug: string) => void;
     onViewSalesperson: (person: Handlowiec) => void;
 }
@@ -26,8 +27,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ partners, salespeople, act
 
     // Helper: Otwórz podgląd (używamy ścieżki relatywnej z hashem dla bezpieczeństwa w SPA)
     const openPreview = (path: string) => {
-        // path np. '/nibylandia'
-        // Wynik: '#/nibylandia' - przeglądarka obsłuży to względem obecnego origin
         setPreviewUrl(`#${path}`);
     };
 
@@ -50,6 +49,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ partners, salespeople, act
 
         return matchesSearch && matchesStatus;
     });
+
+    if (activeSection === 'MAIL') {
+        return <AdminMailView partners={partners} salespeople={salespeople} />;
+    }
 
     if (activeSection === 'ORDERS') {
         return <OrdersList partners={partners} />;
@@ -104,10 +107,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ partners, salespeople, act
                                 <h2 className="text-2xl font-display font-black">Szybki Podgląd: Nibylandia</h2>
                             </div>
                             <p className="text-slate-400 font-medium max-w-lg">
-                                Użyj tych przycisków, aby szybko sprawdzić jak wyglądają zmiany w aplikacji B2C (dla klienta) oraz ofercie B2B (dla partnera).
+                                Użyj tych przycisków, aby szybko sprawdzić jak wyglądają zmiany w aplikacji B2C (dla klienta), ofercie B2B oraz nowym Landingu Podsumowującym.
                             </p>
                         </div>
-                        <div className="flex gap-4">
+                        <div className="flex flex-wrap gap-4">
                             <button 
                                 onClick={() => openPreview('/nibylandia')}
                                 className="flex items-center gap-3 bg-white text-slate-900 px-6 py-4 rounded-xl font-bold hover:bg-blue-50 transition-colors shadow-lg hover:scale-[1.02] active:scale-95"
@@ -122,6 +125,14 @@ export const AdminView: React.FC<AdminViewProps> = ({ partners, salespeople, act
                                 <Briefcase size={20} className="text-slate-900" />
                                 Oferta B2B
                             </button>
+                            {/* POPRAWIONY PRZYCISK - TERAZ TO LINK, A NIE MODAL */}
+                            <Link 
+                                to="/demo-view"
+                                className="flex items-center gap-3 bg-indigo-600 text-white px-6 py-4 rounded-xl font-bold hover:bg-indigo-500 transition-colors shadow-lg hover:scale-[1.02] active:scale-95"
+                            >
+                                <Gift size={20} className="text-white" />
+                                Landing Propozycji
+                            </Link>
                         </div>
                     </div>
                 </div>
@@ -133,7 +144,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ partners, salespeople, act
                     </div>
                     
                     <div className="flex flex-col md:flex-row gap-4 items-center w-full md:w-auto">
-                        {/* Toggle Switch */}
                         <label className="flex items-center cursor-pointer gap-3 bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-sm">
                             <div className="relative">
                                 <input type="checkbox" className="sr-only" checked={showInactive} onChange={() => setShowInactive(!showInactive)} />
@@ -143,7 +153,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ partners, salespeople, act
                             <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Pokaż nieaktywnych</span>
                         </label>
 
-                        {/* Wyszukiwarka */}
                         <div className="relative w-full md:w-80">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                             <input 
@@ -167,12 +176,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ partners, salespeople, act
                                 key={p.Id}
                                 className={`group relative bg-white border border-slate-200 rounded-[2rem] text-left transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-blue-200 flex flex-col h-full overflow-hidden ${isInactive ? 'opacity-70 bg-slate-50' : ''}`}
                             >
-                                {/* Ciało Kafelka (Klikalne -> Szczegóły) */}
                                 <div 
                                     onClick={() => onViewPartner(p.Slug)}
                                     className="p-6 flex-1 cursor-pointer"
                                 >
-                                    {/* Header: Logo + Status */}
                                     <div className="flex justify-between items-start mb-4 w-full">
                                         <div 
                                             className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold font-display shadow-sm overflow-hidden bg-slate-50 border border-slate-100"
@@ -196,7 +203,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ partners, salespeople, act
                                         </span>
                                     </div>
 
-                                    {/* Main Info */}
                                     <div className="mb-2">
                                         <h3 className="text-xl font-black text-slate-900 leading-tight mb-1 group-hover:text-blue-600 transition-colors">
                                             {p.PartnerName}
@@ -214,7 +220,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ partners, salespeople, act
                                                 <span className="text-slate-500 font-medium flex items-center gap-1.5"><Wallet size={12}/> Przychód:</span>
                                                 <span className="text-emerald-600 font-black">{p.SprzedazWartosc || 0} PLN</span>
                                             </div>
-                                            {/* Contract Info */}
                                             <div className="flex justify-between items-center text-xs border-t border-slate-100 pt-2 mt-2">
                                                 <span className="text-slate-500 font-medium flex items-center gap-1.5"><FileCheck size={12}/> Umowa:</span>
                                                 {p.ContractStatus === 'PODPISANA' && p.ContractEndDate ? (
@@ -235,7 +240,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ partners, salespeople, act
                                     </div>
                                 </div>
 
-                                {/* Footer (Akcje Podglądu) */}
                                 <div className="bg-slate-50 border-t border-slate-100 p-3 grid grid-cols-2 gap-3">
                                     <button 
                                         onClick={() => openPreview(`/${p.Slug}`)} 

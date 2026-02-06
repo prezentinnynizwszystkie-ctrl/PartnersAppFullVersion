@@ -48,6 +48,7 @@ export interface Handlowiec {
   email: string;
   telefon: string;
   SprzedazSuma?: number;
+  PhotoUrl?: string | null; // Zdjęcie profilowe (bez tła)
 }
 
 export interface Story {
