@@ -207,19 +207,16 @@ const Wizard: React.FC<WizardProps> = ({ onClose, primaryColor, accentColor, par
         FrontendUUID: orderFolderId 
       };
 
-      // 5. Single ATOMIC Insert into Database
+      // 5. Single ATOMIC Insert into Database (USING VIEW IN PartnersApp SCHEMA)
+      // Usunęliśmy nadmiarowe kolumny z inserta, bo tabela ich nie ma. Są w JSON.
       const { error: orderError } = await supabase
-        .schema('birthdays')
-        .from('StoryOrders')
+        .schema('PartnersApp') // Używamy Exposed Schema
+        .from('StoryOrders')   // Insertujemy do Widoku
         .insert({
           StoryId: selectedStoryId,
           PartnerId: partner.Id,
           Questionnaire: questionnaire,
-          Status: 'QuestionnaireToApprove',
-          // Optionally map columns if they exist in schema, but Questionnaire JSON is primary
-          PhotoUrl: fileUrls.PhotoUrl,
-          PhotoUrl1: fileUrls.PhotoUrl1,
-          RecordUrl: fileUrls.RecordUrl
+          Status: 'QuestionnaireToApprove'
         });
 
       if (orderError) throw orderError;

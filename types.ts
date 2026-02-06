@@ -48,6 +48,7 @@ export interface Handlowiec {
   email: string;
   telefon: string;
   SprzedazSuma?: number;
+  PhotoUrl?: string | null; // Zdjęcie profilowe (bez tła)
 }
 
 export interface Story {
@@ -60,6 +61,18 @@ export interface Story {
   DynamicLines?: any; // JSONB
   Scenario?: any; // JSONB lub TEXT w zależności od etapu
   Lektorzy?: any; // JSONB - Tablica lektorów (POPRAWIONE)
+}
+
+export interface StoryOrder {
+  OrderId: number;
+  created_at: string;
+  Status: string;
+  Questionnaire: any; // JSONB
+  StoryId: number | null;
+  PartnerId: number | null;
+  PhotoUrl?: string | null;
+  PhotoUrl1?: string | null;
+  RecordUrl?: string | null;
 }
 
 export type UserRole = 'ADMIN' | 'HANDLOWIEC' | 'PARTNER' | 'KLIENT';

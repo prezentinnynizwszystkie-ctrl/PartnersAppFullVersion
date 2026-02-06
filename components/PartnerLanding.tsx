@@ -1,11 +1,10 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 import { Partner } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Mic2, Music, Palette, Brain, ArrowRight, Star, ChevronLeft, ChevronRight, BookOpen, CheckCircle2, X, Volume2, Pause, Image as ImageIcon, Rocket, Lock } from 'lucide-react';
+import { Play, Mic2, Music, Palette, Brain, ArrowRight, Star, ChevronLeft, ChevronRight, BookOpen, CheckCircle2, X, Volume2, Pause, Image as ImageIcon, Rocket, Lock, Headphones } from 'lucide-react';
 
 // --- DATA CONSTANTS ---
 
@@ -123,15 +122,7 @@ const AgeCard = ({ ageKey, title, description, color, bgColor, borderColor, badg
                 <p className="text-slate-700 font-medium leading-relaxed mb-6">
                     {description}
                 </p>
-                <div className="mt-auto">
-                    <button 
-                        onClick={onPlaySample}
-                        className="w-full py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all bg-white border-2 border-slate-200 text-slate-600 hover:border-blue-400 hover:text-blue-600 hover:shadow-sm"
-                    >
-                        <Play size={16} fill="currentColor" />
-                        Zobacz przykładowy fragment
-                    </button>
-                </div>
+                {/* Button removed as requested */}
             </div>
         </div>
     );
@@ -228,10 +219,7 @@ const PartnerLanding: React.FC = () => {
   const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
   const audioInstanceRef = useRef<HTMLAudioElement | null>(null);
 
-  // --- RUNTIME COMPOSING STATE ---
-  const [introStatus, setIntroStatus] = useState<'IDLE' | 'PLAYING' | 'FINISHED'>('IDLE');
-  const introAudioRef = useRef<HTMLAudioElement | null>(null);
-  const bgAudioRef = useRef<HTMLAudioElement | null>(null);
+  // --- RUNTIME COMPOSING STATE (Zostawione logicznie, ale UI wyłączone) ---
   const heroVideoRef = useRef<HTMLVideoElement>(null); // For Desktop
   const heroVideoMobileRef = useRef<HTMLVideoElement>(null); // For Mobile
 
@@ -271,9 +259,6 @@ const PartnerLanding: React.FC = () => {
               audioInstanceRef.current.pause();
               audioInstanceRef.current = null;
           }
-          // Cleanup Runtime Composing Audio
-          if (introAudioRef.current) introAudioRef.current.pause();
-          if (bgAudioRef.current) bgAudioRef.current.pause();
       };
   }, []);
 
@@ -324,52 +309,6 @@ const PartnerLanding: React.FC = () => {
       }
   };
 
-  // --- RUNTIME COMPOSING LOGIC ---
-  const startRuntimeComposing = async () => {
-      if (!partner?.IntroUrl) return;
-
-      setIntroStatus('PLAYING');
-
-      // 1. Play Background Music immediately
-      // Using a standard universal background for intro
-      const bgAudio = new Audio("https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/Others/Probki/maluchy%20background.mp3");
-      bgAudio.volume = 0.3;
-      bgAudio.loop = false;
-      bgAudioRef.current = bgAudio;
-      bgAudio.play().catch(e => console.error("BG Audio fail", e));
-
-      // 2. Schedule Voice Intro after 2 seconds
-      setTimeout(() => {
-          const introAudio = new Audio(partner.IntroUrl!);
-          introAudioRef.current = introAudio;
-          
-          introAudio.onended = () => {
-              // 3. When intro ends + buffer, reveal main video
-              setTimeout(() => {
-                  setIntroStatus('FINISHED');
-                  // Fade out BG audio
-                  let vol = 0.3;
-                  const fadeInterval = setInterval(() => {
-                      vol -= 0.05;
-                      if (vol <= 0) {
-                          clearInterval(fadeInterval);
-                          bgAudio.pause();
-                      } else {
-                          bgAudio.volume = vol;
-                      }
-                  }, 200);
-
-                  // Ensure underlying videos are playing
-                  if (heroVideoRef.current) heroVideoRef.current.play();
-                  if (heroVideoMobileRef.current) heroVideoMobileRef.current.play();
-
-              }, 2000); // 2s buffer after voice ends
-          };
-
-          introAudio.play().catch(e => console.error("Intro Audio fail", e));
-      }, 2000); // 2s delay before voice
-  };
-
   // Helper to render Hero Header with highlighting
   const renderHeroHeader = (partner: Partner) => {
       // Changed default template to use space instead of \n to allow text-wrap: balance to work
@@ -399,7 +338,7 @@ const PartnerLanding: React.FC = () => {
   return (
     <div style={dynamicStyle} className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#fccb00] selection:text-black">
       
-      {/* 1. SEKCJA HERO (RUNTIME COMPOSING) */}
+      {/* 1. SEKCJA HERO (CLEAN) */}
       <section className="relative w-full min-h-[85vh] lg:min-h-0 lg:aspect-[21/9] flex items-center justify-center bg-slate-900 z-30">
         
         {/* BASE LAYER: Standard Video Loop */}
@@ -413,80 +352,8 @@ const PartnerLanding: React.FC = () => {
              <div className="absolute inset-0 bg-black/40" />
         </div>
 
-        {/* OVERLAY LAYER: Runtime Composing Theater */}
-        <AnimatePresence>
-            {introStatus !== 'FINISHED' && partner.IntroUrl && (
-                <motion.div 
-                    initial={{ opacity: 1 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0, transition: { duration: 1.5 } }}
-                    className="absolute inset-0 z-20 flex items-center justify-center bg-black"
-                >
-                    {/* Blurred Poster Background */}
-                    <div className="absolute inset-0 overflow-hidden">
-                        <img 
-                            src={partner.PhotoUrl || "https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/UniversalPhotos/PosterVideoUniwesal21_9.webp"} 
-                            alt="Background" 
-                            className="w-full h-full object-cover opacity-60 scale-110"
-                        />
-                        <div className="absolute inset-0 backdrop-blur-md bg-black/30" />
-                    </div>
-
-                    {/* Content */}
-                    <div className="relative z-30 flex flex-col items-center justify-center">
-                        {introStatus === 'IDLE' ? (
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={startRuntimeComposing}
-                                className="group flex flex-col items-center gap-4 cursor-pointer"
-                            >
-                                <div className="relative">
-                                    <div className="absolute inset-0 bg-white/30 rounded-full animate-ping opacity-50" />
-                                    <div className="w-24 h-24 bg-white/10 backdrop-blur-md border border-white/50 rounded-full flex items-center justify-center shadow-2xl group-hover:bg-white/20 transition-all">
-                                        <Play size={40} className="text-white ml-1" fill="currentColor" />
-                                    </div>
-                                </div>
-                                <span className="text-white font-black uppercase tracking-[0.2em] text-sm drop-shadow-md">
-                                    Odtwórz Intro
-                                </span>
-                            </motion.button>
-                        ) : (
-                            <motion.div 
-                                initial={{ opacity: 0, scale: 0.8 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ duration: 1, ease: "easeOut" }}
-                                className="flex flex-col items-center gap-8"
-                            >
-                                {/* Floating Logo */}
-                                <div className="w-48 h-48 md:w-64 md:h-64 bg-white rounded-full p-6 shadow-[0_0_60px_rgba(255,255,255,0.3)] border-4 border-white/50 flex items-center justify-center animate-[float_6s_ease-in-out_infinite]">
-                                    {partner.LogoUrl ? (
-                                        <img src={partner.LogoUrl} alt={partner.PartnerName} className="w-full h-full object-contain" />
-                                    ) : (
-                                        <span className="font-display font-black text-4xl text-slate-900">{partner.PartnerName.charAt(0)}</span>
-                                    )}
-                                </div>
-                                
-                                {/* Equalizer Effect (Simulated) */}
-                                <div className="flex gap-1 items-end h-8">
-                                    {[...Array(5)].map((_, i) => (
-                                        <motion.div 
-                                            key={i}
-                                            animate={{ height: [10, 32, 15, 28, 10] }}
-                                            transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.1 }}
-                                            className="w-1.5 bg-white/80 rounded-full"
-                                        />
-                                    ))}
-                                </div>
-                            </motion.div>
-                        )}
-                    </div>
-                </motion.div>
-            )}
-        </AnimatePresence>
-
-        {/* Standard Hero Content (Text & Inputs) - Always visible underneath, interactive when intro finished */}
-        <div className={`relative z-10 w-full max-w-5xl mx-auto px-6 text-center flex flex-col items-center gap-8 mt-10 transition-opacity duration-1000 ${introStatus === 'PLAYING' ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        {/* Standard Hero Content (Text & Inputs) - Always visible */}
+        <div className="relative z-10 w-full max-w-5xl mx-auto px-6 text-center flex flex-col items-center gap-8 mt-10">
             <motion.div 
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -540,23 +407,21 @@ const PartnerLanding: React.FC = () => {
             </motion.div>
         </div>
 
-        {/* LOGO (Bottom Center) - Only visible if Intro not playing */}
-        {introStatus !== 'PLAYING' && (
-            <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 z-40">
-                <motion.div 
-                    initial={{ y: 50, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.8 }}
-                    className="w-32 h-32 md:w-40 md:h-40 bg-white rounded-full p-4 shadow-2xl border-4 border-white flex items-center justify-center overflow-hidden"
-                >
-                    {partner.LogoUrl ? (
-                        <img src={partner.LogoUrl} alt={partner.PartnerName} className="w-full h-full object-contain" />
-                    ) : (
-                        <span className="font-display font-black text-3xl text-slate-900">{partner.PartnerName.charAt(0)}</span>
-                    )}
-                </motion.div>
-            </div>
-        )}
+        {/* LOGO (Bottom Center) */}
+        <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 z-40">
+            <motion.div 
+                initial={{ y: 50, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.8 }}
+                className="w-32 h-32 md:w-40 md:h-40 bg-white rounded-full p-4 shadow-2xl border-4 border-white flex items-center justify-center overflow-hidden"
+            >
+                {partner.LogoUrl ? (
+                    <img src={partner.LogoUrl} alt={partner.PartnerName} className="w-full h-full object-contain" />
+                ) : (
+                    <span className="font-display font-black text-3xl text-slate-900">{partner.PartnerName.charAt(0)}</span>
+                )}
+            </motion.div>
+        </div>
       </section>
 
       {/* 2. SEKCJA VIDEO */}
@@ -755,7 +620,7 @@ const PartnerLanding: React.FC = () => {
           </div>
       </section>
 
-      {/* 6. SEKCJA: ASPEKT PSYCHOLOGICZNY */}
+      {/* 6. SEKCJA: ASPEKT PSYCHOLOGICZNY (Z NOWYM PLAYEREM) */}
       <section className="py-20 px-6 bg-slate-900 text-white">
           <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-16 items-start">
                <div className="md:w-1/3 relative md:sticky md:top-10">
@@ -766,9 +631,45 @@ const PartnerLanding: React.FC = () => {
                    <p className="text-slate-400 text-lg leading-relaxed mb-8">
                        Wiedza dla świadomego rodzica. Nasze bajki to nie tylko rozrywka, to narzędzie wspierające rozwój oparte na solidnych podstawach psychologii.
                    </p>
-                   <button onClick={() => setShowArticle(true)} className="inline-flex items-center gap-2 text-slate-900 font-bold bg-[#fccb00] px-6 py-3 rounded-xl hover:bg-[#e5b800] transition-colors">
+                   
+                   <button onClick={() => setShowArticle(true)} className="inline-flex items-center gap-2 text-slate-900 font-bold bg-[#fccb00] px-6 py-3 rounded-xl hover:bg-[#e5b800] transition-colors w-full md:w-auto justify-center md:justify-start">
                        <BookOpen size={20} /> Przeczytaj artykuł
                    </button>
+
+                   {/* NOWY ODTWARZACZ ARTYKUŁU */}
+                   <div className="mt-8 pt-8 border-t border-white/10">
+                        <div className="bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center gap-4 hover:bg-white/10 transition-colors group">
+                            <button
+                                onClick={() => handleToggleAudio('article-audio', 'https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/Others/Probki/artykul_dla_rodzica.mp3')}
+                                className="w-14 h-14 bg-[#fccb00] text-slate-900 rounded-full flex items-center justify-center shrink-0 shadow-lg group-hover:scale-105 transition-transform"
+                            >
+                                {activeAudioId === 'article-audio' ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
+                            </button>
+                            <div className="flex-1">
+                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                                    <Headphones size={12} /> Wersja Audio
+                                </div>
+                                <div className="font-bold text-white leading-tight text-sm">
+                                    Nie masz czasu czytać? <br/>
+                                    <span className="text-[#fccb00]">Posłuchaj!</span>
+                                </div>
+                            </div>
+                            {/* Simple Visualizer Animation if playing */}
+                            {activeAudioId === 'article-audio' && (
+                                <div className="flex gap-1 h-8 items-center opacity-80">
+                                    {[...Array(4)].map((_, i) => (
+                                        <motion.div
+                                            key={i}
+                                            animate={{ height: [8, 20, 8] }}
+                                            transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.15 }}
+                                            className="w-1 bg-[#fccb00] rounded-full"
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                   </div>
+
                </div>
 
                <div className="md:w-2/3 space-y-8">
@@ -873,6 +774,7 @@ const PartnerLanding: React.FC = () => {
         )}
       </AnimatePresence>
 
+      {/* PRZYWRÓCONA PEŁNA TREŚĆ ARTYKUŁU W POPUPIE */}
       <AnimatePresence>
         {showArticle && (
           <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center sm:p-4 p-0">
@@ -886,9 +788,123 @@ const PartnerLanding: React.FC = () => {
                             <span className="text-white/90 font-bold tracking-wider text-xs uppercase border border-white/30 px-3 py-1 rounded-full backdrop-blur-md">Edukacja i Rozwój</span>
                         </div>
                     </div>
+                    
+                    {/* PEŁNA TREŚĆ ARTYKUŁU Z ARTICLEVIEW.TSX */}
                     <div className="p-6 md:p-12 prose prose-lg prose-slate max-w-none">
                          <h1 className="text-2xl md:text-4xl font-display font-black text-slate-900 mb-6 leading-[1.1]">Urodziny z Supermocami: Dlaczego Twoje Dziecko Zasługuje na Własną Historię?</h1>
-                         {/* Content same as before, omitted for brevity */}
+                         
+                         <p className="lead text-xl text-slate-600 mb-8 font-medium">
+                            Większość urodzin w salach zabaw wygląda podobnie: radosny pisk, tona energii, tort, a na koniec plastikowy gadżet w torebce prezentowej, który po dwóch dniach ląduje w kącie. A gdyby tak tym razem jubilat zabrał ze sobą coś, co zostanie w jego sercu (i głowie) na lata?
+                        </p>
+
+                        <p className="mb-8">
+                            Wprowadzamy nowość, która zmienia zasady gry: <strong>Personalizowaną Multibajkę</strong>. To nie jest zwykła animacja. To narzędzie psychologiczne ubrane w szaty pięknej opowieści, w której to <strong>Twoje dziecko ratuje świat.</strong>
+                        </p>
+
+                        <hr className="my-12 border-slate-100" />
+
+                        <h3 className="text-2xl text-slate-800 mb-4 flex items-center gap-3">
+                            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 text-sm font-bold">1</span>
+                            Magia „Efektu Odniesienia do Ja”
+                        </h3>
+                        
+                        <p className="mb-6">
+                            Czy zauważyłeś, jak Twoje dziecko rozkwita, gdy słyszy swoje imię? W psychologii nazywamy to <strong>efektem odniesienia do Ja</strong> (<em>self-referential effect</em>). Nasze mózgi są zaprogramowane tak, by priorytetowo traktować informacje o nas samych.
+                        </p>
+                        
+                        <p className="mb-6">
+                            Kiedy jubilat słyszy w głośnikach: <em>„Tylko Ty, [Imię Dziecka], możesz pomóc mieszkańcom oceanu!”</em>, dzieje się coś niezwykłego:
+                        </p>
+
+                        <ul className="space-y-3 mb-10 pl-4 border-l-4 border-slate-100">
+                            <li className="flex items-start gap-3">
+                                <span className="text-green-500 mt-1 shrink-0">➜</span>
+                                <span><strong>Koncentracja rośnie do maksimum.</strong></span>
+                            </li>
+                            <li className="flex items-start gap-3">
+                                <span className="text-green-500 mt-1 shrink-0">➜</span>
+                                <span>Dziecko przestaje być tylko widzem, a staje się sprawcą.</span>
+                            </li>
+                            <li className="flex items-start gap-3">
+                                <span className="text-green-500 mt-1 shrink-0">➜</span>
+                                <span>Buduje się silne poczucie własnej wartości.</span>
+                            </li>
+                        </ul>
+
+                        {/* Image Break */}
+                        <div className="my-10 rounded-2xl overflow-hidden shadow-lg h-64 md:h-80">
+                             <img src="https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/UniversalPhotos/RealityVSvirtual/6-8Boy1.webp" alt="Imagination" className="w-full h-full object-cover" />
+                        </div>
+
+                        <h3 className="text-2xl text-slate-800 mb-4 flex items-center gap-3">
+                            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-600 text-sm font-bold">2</span>
+                            Więcej niż zabawa – to trening odwagi
+                        </h3>
+
+                        <p className="mb-6">
+                            W świecie Multibajki dziecko staje przed wyzwaniami: musi posprzątać ocean z plastiku lub pomóc zagubionym zwierzętom. Dzięki mechanizmowi <strong>transportu narracyjnego</strong> dziecko „wchodzi” w historię całym sobą.
+                        </p>
+
+                        <blockquote className="p-6 bg-slate-50 rounded-xl border-l-4 mb-10" style={{borderColor: primaryColor}}>
+                            <p className="italic text-slate-700 font-medium m-0">
+                                <strong>Co to oznacza w praktyce?</strong> Jeśli dziecko poradzi sobie z problemem w bajce, jego podświadomość koduje prosty komunikat: <em>„Jestem odważny. Potrafię rozwiązywać problemy”</em>. To tzw. <strong>empowerment</strong>, czyli budowanie poczucia sprawstwa, które dzieci przenoszą potem na plac zabaw i do szkoły.
+                            </p>
+                        </blockquote>
+
+                        <h3 className="text-2xl text-slate-800 mb-4 flex items-center gap-3">
+                            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-pink-100 text-pink-600 text-sm font-bold">3</span>
+                            Pamiątka, która wycisza i koi
+                        </h3>
+
+                        <p className="mb-6">
+                            Urodziny w parku trampolin czy sali zabaw to ogromna dawka bodźców. Multibajka, którą otrzymujecie po imprezie, to idealny sposób na <strong>powrót do równowagi</strong>.
+                        </p>
+
+                        <ul className="list-disc pl-5 space-y-2 mb-10 text-slate-700">
+                            <li><strong>Wieczorny rytuał:</strong> Słuchanie o własnych przygodach przed snem pomaga obniżyć napięcie i lęk.</li>
+                            <li><strong>Wsparcie terapeutyczne:</strong> Dzięki metodzie desensytyzacji (oswajania lęków poprzez historię), dziecko uczy się, że nawet trudne sytuacje mają szczęśliwe zakończenie.</li>
+                        </ul>
+
+                        <h3 className="text-2xl font-bold mb-6 mt-12">Dlaczego warto dodać Multibajkę do pakietu urodzinowego?</h3>
+                        
+                        <div className="overflow-hidden rounded-xl border border-slate-200 mb-12">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-50 text-slate-900 font-bold uppercase tracking-wider">
+                                    <tr>
+                                        <th className="p-4 border-b border-slate-200">Cecha</th>
+                                        <th className="p-4 border-b border-slate-200">Korzyść dla dziecka</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    <tr className="bg-white">
+                                        <td className="p-4 font-semibold text-slate-900">Personalizacja</td>
+                                        <td className="p-4 text-slate-600">Czuje się wyjątkowe i ważne – nie tylko „jednym z gości”.</td>
+                                    </tr>
+                                    <tr className="bg-slate-50/50">
+                                        <td className="p-4 font-semibold text-slate-900">Głos Lektora + Obraz</td>
+                                        <td className="p-4 text-slate-600">Stymulacja rozwoju językowego i wyobraźni.</td>
+                                    </tr>
+                                    <tr className="bg-white">
+                                        <td className="p-4 font-semibold text-slate-900">Trwałość</td>
+                                        <td className="p-4 text-slate-600">To pamiątka, do której można wracać setki razy.</td>
+                                    </tr>
+                                    <tr className="bg-slate-50/50">
+                                        <td className="p-4 font-semibold text-slate-900">Budowanie empatii</td>
+                                        <td className="p-4 text-slate-600">Misje ratunkowe uczą wrażliwości na los innych i ekologii.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="p-8 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white text-center">
+                            <h4 className="text-2xl font-display font-bold mb-4">Podaruj dziecku dowód na to, że jest Bohaterem</h4>
+                            <p className="mb-6 opacity-90 leading-relaxed">
+                                Skakanie w basenie z gąbkami to genialna frajda, ale połączenie tej energii z refleksją, jaką daje personalizowana opowieść, to prezent kompletny. Chcemy, aby każde dziecko wychodziło z naszej sali nie tylko wybiegane, ale też pewniejsze siebie.
+                            </p>
+                            <p className="font-bold text-lg text-[var(--accent)]" style={{color: accentColor}}>
+                                Bo w {partner?.PartnerName || 'naszej sali zabaw'} każde dziecko jest głównym bohaterem swojej własnej przygody.
+                            </p>
+                        </div>
                     </div>
                  </div>
              </motion.div>
