@@ -273,7 +273,7 @@ const ProposalView: React.FC = () => {
               <div className="text-center mb-16">
                   <span className="text-blue-600 font-black text-xs uppercase tracking-[0.2em] mb-3 block">Wartość Biznesowa</span>
                   <h2 className="text-3xl md:text-5xl font-display font-black text-slate-900">
-                      Co zyska oferta {partner.PartnerName}?
+                      Co zyska {partner.PartnerName}?
                   </h2>
               </div>
 
