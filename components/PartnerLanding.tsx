@@ -4,7 +4,7 @@ import { supabase } from '../utils/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 import { Partner } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Mic2, Music, Palette, Brain, ArrowRight, Star, ChevronLeft, ChevronRight, BookOpen, CheckCircle2, X, Volume2, Pause, Image as ImageIcon, Rocket, Lock } from 'lucide-react';
+import { Play, Mic2, Music, Palette, Brain, ArrowRight, Star, ChevronLeft, ChevronRight, BookOpen, CheckCircle2, X, Volume2, Pause, Image as ImageIcon, Rocket, Lock, Headphones } from 'lucide-react';
 
 // --- DATA CONSTANTS ---
 
@@ -620,7 +620,7 @@ const PartnerLanding: React.FC = () => {
           </div>
       </section>
 
-      {/* 6. SEKCJA: ASPEKT PSYCHOLOGICZNY */}
+      {/* 6. SEKCJA: ASPEKT PSYCHOLOGICZNY (Z NOWYM PLAYEREM) */}
       <section className="py-20 px-6 bg-slate-900 text-white">
           <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-16 items-start">
                <div className="md:w-1/3 relative md:sticky md:top-10">
@@ -631,9 +631,45 @@ const PartnerLanding: React.FC = () => {
                    <p className="text-slate-400 text-lg leading-relaxed mb-8">
                        Wiedza dla świadomego rodzica. Nasze bajki to nie tylko rozrywka, to narzędzie wspierające rozwój oparte na solidnych podstawach psychologii.
                    </p>
-                   <button onClick={() => setShowArticle(true)} className="inline-flex items-center gap-2 text-slate-900 font-bold bg-[#fccb00] px-6 py-3 rounded-xl hover:bg-[#e5b800] transition-colors">
+                   
+                   <button onClick={() => setShowArticle(true)} className="inline-flex items-center gap-2 text-slate-900 font-bold bg-[#fccb00] px-6 py-3 rounded-xl hover:bg-[#e5b800] transition-colors w-full md:w-auto justify-center md:justify-start">
                        <BookOpen size={20} /> Przeczytaj artykuł
                    </button>
+
+                   {/* NOWY ODTWARZACZ ARTYKUŁU */}
+                   <div className="mt-8 pt-8 border-t border-white/10">
+                        <div className="bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center gap-4 hover:bg-white/10 transition-colors group">
+                            <button
+                                onClick={() => handleToggleAudio('article-audio', 'https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/Others/Probki/artykul_dla_rodzica.mp3')}
+                                className="w-14 h-14 bg-[#fccb00] text-slate-900 rounded-full flex items-center justify-center shrink-0 shadow-lg group-hover:scale-105 transition-transform"
+                            >
+                                {activeAudioId === 'article-audio' ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
+                            </button>
+                            <div className="flex-1">
+                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                                    <Headphones size={12} /> Wersja Audio
+                                </div>
+                                <div className="font-bold text-white leading-tight text-sm">
+                                    Nie masz czasu czytać? <br/>
+                                    <span className="text-[#fccb00]">Posłuchaj (3 min)</span>
+                                </div>
+                            </div>
+                            {/* Simple Visualizer Animation if playing */}
+                            {activeAudioId === 'article-audio' && (
+                                <div className="flex gap-1 h-8 items-center opacity-80">
+                                    {[...Array(4)].map((_, i) => (
+                                        <motion.div
+                                            key={i}
+                                            animate={{ height: [8, 20, 8] }}
+                                            transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.15 }}
+                                            className="w-1 bg-[#fccb00] rounded-full"
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                   </div>
+
                </div>
 
                <div className="md:w-2/3 space-y-8">
@@ -880,4 +916,4 @@ const PartnerLanding: React.FC = () => {
   );
 };
 
-export default PartnerLanding;
+export default ProposalViewDemo;
