@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
@@ -123,9 +122,7 @@ const AgeCard = ({ ageKey, title, description, color, bgColor, borderColor, badg
                 <p className="text-slate-700 font-medium leading-relaxed mb-6">
                     {description}
                 </p>
-                <div className="mt-auto">
-                    {/* Button removed here */}
-                </div>
+                {/* Button removed as requested */}
             </div>
         </div>
     );
@@ -222,10 +219,7 @@ const PartnerLanding: React.FC = () => {
   const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
   const audioInstanceRef = useRef<HTMLAudioElement | null>(null);
 
-  // --- RUNTIME COMPOSING STATE ---
-  const [introStatus, setIntroStatus] = useState<'IDLE' | 'PLAYING' | 'FINISHED'>('IDLE');
-  const introAudioRef = useRef<HTMLAudioElement | null>(null);
-  const bgAudioRef = useRef<HTMLAudioElement | null>(null);
+  // --- RUNTIME COMPOSING STATE (Zostawione logicznie, ale UI wyłączone) ---
   const heroVideoRef = useRef<HTMLVideoElement>(null); // For Desktop
   const heroVideoMobileRef = useRef<HTMLVideoElement>(null); // For Mobile
 
@@ -265,9 +259,6 @@ const PartnerLanding: React.FC = () => {
               audioInstanceRef.current.pause();
               audioInstanceRef.current = null;
           }
-          // Cleanup Runtime Composing Audio
-          if (introAudioRef.current) introAudioRef.current.pause();
-          if (bgAudioRef.current) bgAudioRef.current.pause();
       };
   }, []);
 
@@ -318,52 +309,6 @@ const PartnerLanding: React.FC = () => {
       }
   };
 
-  // --- RUNTIME COMPOSING LOGIC ---
-  const startRuntimeComposing = async () => {
-      if (!partner?.IntroUrl) return;
-
-      setIntroStatus('PLAYING');
-
-      // 1. Play Background Music immediately
-      // Using a standard universal background for intro
-      const bgAudio = new Audio("https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/Others/Probki/maluchy%20background.mp3");
-      bgAudio.volume = 0.3;
-      bgAudio.loop = false;
-      bgAudioRef.current = bgAudio;
-      bgAudio.play().catch(e => console.error("BG Audio fail", e));
-
-      // 2. Schedule Voice Intro after 2 seconds
-      setTimeout(() => {
-          const introAudio = new Audio(partner.IntroUrl!);
-          introAudioRef.current = introAudio;
-          
-          introAudio.onended = () => {
-              // 3. When intro ends + buffer, reveal main video
-              setTimeout(() => {
-                  setIntroStatus('FINISHED');
-                  // Fade out BG audio
-                  let vol = 0.3;
-                  const fadeInterval = setInterval(() => {
-                      vol -= 0.05;
-                      if (vol <= 0) {
-                          clearInterval(fadeInterval);
-                          bgAudio.pause();
-                      } else {
-                          bgAudio.volume = vol;
-                      }
-                  }, 200);
-
-                  // Ensure underlying videos are playing
-                  if (heroVideoRef.current) heroVideoRef.current.play();
-                  if (heroVideoMobileRef.current) heroVideoMobileRef.current.play();
-
-              }, 2000); // 2s buffer after voice ends
-          };
-
-          introAudio.play().catch(e => console.error("Intro Audio fail", e));
-      }, 2000); // 2s delay before voice
-  };
-
   // Helper to render Hero Header with highlighting
   const renderHeroHeader = (partner: Partner) => {
       // Changed default template to use space instead of \n to allow text-wrap: balance to work
@@ -393,7 +338,7 @@ const PartnerLanding: React.FC = () => {
   return (
     <div style={dynamicStyle} className="min-h-screen bg-white text-slate-900 font-sans selection:bg-[#fccb00] selection:text-black">
       
-      {/* 1. SEKCJA HERO (RUNTIME COMPOSING) */}
+      {/* 1. SEKCJA HERO (CLEAN) */}
       <section className="relative w-full min-h-[85vh] lg:min-h-0 lg:aspect-[21/9] flex items-center justify-center bg-slate-900 z-30">
         
         {/* BASE LAYER: Standard Video Loop */}
@@ -407,80 +352,8 @@ const PartnerLanding: React.FC = () => {
              <div className="absolute inset-0 bg-black/40" />
         </div>
 
-        {/* OVERLAY LAYER: Runtime Composing Theater */}
-        <AnimatePresence>
-            {introStatus !== 'FINISHED' && partner.IntroUrl && (
-                <motion.div 
-                    initial={{ opacity: 1 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0, transition: { duration: 1.5 } }}
-                    className="absolute inset-0 z-20 flex items-center justify-center bg-black"
-                >
-                    {/* Blurred Poster Background */}
-                    <div className="absolute inset-0 overflow-hidden">
-                        <img 
-                            src={partner.PhotoUrl || "https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/UniversalPhotos/PosterVideoUniwesal21_9.webp"} 
-                            alt="Background" 
-                            className="w-full h-full object-cover opacity-60 scale-110"
-                        />
-                        <div className="absolute inset-0 backdrop-blur-md bg-black/30" />
-                    </div>
-
-                    {/* Content */}
-                    <div className="relative z-30 flex flex-col items-center justify-center">
-                        {introStatus === 'IDLE' ? (
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={startRuntimeComposing}
-                                className="group flex flex-col items-center gap-4 cursor-pointer"
-                            >
-                                <div className="relative">
-                                    <div className="absolute inset-0 bg-white/30 rounded-full animate-ping opacity-50" />
-                                    <div className="w-24 h-24 bg-white/10 backdrop-blur-md border border-white/50 rounded-full flex items-center justify-center shadow-2xl group-hover:bg-white/20 transition-all">
-                                        <Play size={40} className="text-white ml-1" fill="currentColor" />
-                                    </div>
-                                </div>
-                                <span className="text-white font-black uppercase tracking-[0.2em] text-sm drop-shadow-md">
-                                    Odtwórz Intro
-                                </span>
-                            </motion.button>
-                        ) : (
-                            <motion.div 
-                                initial={{ opacity: 0, scale: 0.8 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ duration: 1, ease: "easeOut" }}
-                                className="flex flex-col items-center gap-8"
-                            >
-                                {/* Floating Logo */}
-                                <div className="w-48 h-48 md:w-64 md:h-64 bg-white rounded-full p-6 shadow-[0_0_60px_rgba(255,255,255,0.3)] border-4 border-white/50 flex items-center justify-center animate-[float_6s_ease-in-out_infinite]">
-                                    {partner.LogoUrl ? (
-                                        <img src={partner.LogoUrl} alt={partner.PartnerName} className="w-full h-full object-contain" />
-                                    ) : (
-                                        <span className="font-display font-black text-4xl text-slate-900">{partner.PartnerName.charAt(0)}</span>
-                                    )}
-                                </div>
-                                
-                                {/* Equalizer Effect (Simulated) */}
-                                <div className="flex gap-1 items-end h-8">
-                                    {[...Array(5)].map((_, i) => (
-                                        <motion.div 
-                                            key={i}
-                                            animate={{ height: [10, 32, 15, 28, 10] }}
-                                            transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.1 }}
-                                            className="w-1.5 bg-white/80 rounded-full"
-                                        />
-                                    ))}
-                                </div>
-                            </motion.div>
-                        )}
-                    </div>
-                </motion.div>
-            )}
-        </AnimatePresence>
-
-        {/* Standard Hero Content (Text & Inputs) - Always visible underneath, interactive when intro finished */}
-        <div className={`relative z-10 w-full max-w-5xl mx-auto px-6 text-center flex flex-col items-center gap-8 mt-10 transition-opacity duration-1000 ${introStatus === 'PLAYING' ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        {/* Standard Hero Content (Text & Inputs) - Always visible */}
+        <div className="relative z-10 w-full max-w-5xl mx-auto px-6 text-center flex flex-col items-center gap-8 mt-10">
             <motion.div 
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -534,23 +407,21 @@ const PartnerLanding: React.FC = () => {
             </motion.div>
         </div>
 
-        {/* LOGO (Bottom Center) - Only visible if Intro not playing */}
-        {introStatus !== 'PLAYING' && (
-            <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 z-40">
-                <motion.div 
-                    initial={{ y: 50, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.8 }}
-                    className="w-32 h-32 md:w-40 md:h-40 bg-white rounded-full p-4 shadow-2xl border-4 border-white flex items-center justify-center overflow-hidden"
-                >
-                    {partner.LogoUrl ? (
-                        <img src={partner.LogoUrl} alt={partner.PartnerName} className="w-full h-full object-contain" />
-                    ) : (
-                        <span className="font-display font-black text-3xl text-slate-900">{partner.PartnerName.charAt(0)}</span>
-                    )}
-                </motion.div>
-            </div>
-        )}
+        {/* LOGO (Bottom Center) */}
+        <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 z-40">
+            <motion.div 
+                initial={{ y: 50, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.8 }}
+                className="w-32 h-32 md:w-40 md:h-40 bg-white rounded-full p-4 shadow-2xl border-4 border-white flex items-center justify-center overflow-hidden"
+            >
+                {partner.LogoUrl ? (
+                    <img src={partner.LogoUrl} alt={partner.PartnerName} className="w-full h-full object-contain" />
+                ) : (
+                    <span className="font-display font-black text-3xl text-slate-900">{partner.PartnerName.charAt(0)}</span>
+                )}
+            </motion.div>
+        </div>
       </section>
 
       {/* 2. SEKCJA VIDEO */}
