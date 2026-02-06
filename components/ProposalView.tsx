@@ -1,13 +1,13 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
 import { Partner, Handlowiec } from '../types';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Play, Phone, Mail, Brain, Headphones, 
   CheckCircle2, DollarSign, ExternalLink, ChevronLeft, Loader2,
-  Gem, Trophy, Megaphone, ShieldCheck, Layers, Briefcase, Pause
+  Gem, Trophy, Megaphone, ShieldCheck, Layers, Briefcase, Pause,
+  ChevronRight, ArrowRight
 } from 'lucide-react';
 
 const ProposalView: React.FC = () => {
@@ -26,6 +26,10 @@ const ProposalView: React.FC = () => {
 
   // Profit Calc State (Domyślnie 50)
   const [parties, setParties] = useState<string>('50');
+
+  // Slider State for Mobile Benefits
+  const [currentBenefit, setCurrentBenefit] = useState(0);
+  const touchStart = useRef<number | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -94,6 +98,23 @@ const ProposalView: React.FC = () => {
           videoRef.current.play();
           setIsVideoPlaying(true);
       }
+  };
+
+  const nextBenefit = () => setCurrentBenefit(prev => (prev + 1) % 3);
+  const prevBenefit = () => setCurrentBenefit(prev => (prev - 1 + 3) % 3);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStart.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStart.current === null) return;
+    const diff = touchStart.current - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) nextBenefit();
+      else prevBenefit();
+    }
+    touchStart.current = null;
   };
 
   if (loading) return <div className="min-h-screen bg-white flex items-center justify-center"><Loader2 className="animate-spin text-slate-300" /></div>;
@@ -181,9 +202,9 @@ const ProposalView: React.FC = () => {
                         </p>
                     </div>
                     
-                    {/* Salesperson Card */}
+                    {/* Salesperson Card - HIDDEN ON MOBILE (Desktop only) */}
                     {salesperson && (
-                        <div className="inline-flex items-center gap-4 bg-white p-4 pr-8 rounded-full shadow-sm border border-slate-200 mt-4">
+                        <div className="hidden md:inline-flex items-center gap-4 bg-white p-4 pr-8 rounded-full shadow-sm border border-slate-200 mt-4">
                             <div className="w-14 h-14 bg-slate-100 rounded-full overflow-hidden border-2 border-white shadow-md relative">
                                 <div className="w-full h-full flex items-center justify-center bg-blue-100 text-blue-600 font-bold text-xl">
                                     {salesperson.imie.charAt(0)}{salesperson.nazwisko.charAt(0)}
@@ -209,7 +230,7 @@ const ProposalView: React.FC = () => {
                     initial={{ opacity: 0, y: 50 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
-                    className="md:col-span-5 relative h-[50vh] md:h-full flex items-end justify-center md:justify-end"
+                    className="md:col-span-5 relative h-[50vh] md:h-full flex flex-col items-center justify-end"
                 >
                     {/* Blob Background */}
                     <div className="absolute bottom-0 right-0 md:right-10 w-64 h-64 md:w-96 md:h-96 bg-gradient-to-tr from-orange-200 to-amber-200 rounded-full blur-3xl opacity-50 -z-10" />
@@ -218,9 +239,26 @@ const ProposalView: React.FC = () => {
                     <img 
                         src={salesPhotoUrl}
                         alt={salesperson?.imie || "Opiekun"} 
-                        className="max-h-full w-auto object-contain drop-shadow-2xl"
+                        className="max-h-full w-auto object-contain drop-shadow-2xl z-10"
                         style={{ maskImage: 'linear-gradient(to bottom, black 90%, transparent 100%)' }}
                     />
+
+                    {/* Salesperson Card - MOBILE ONLY (Under Photo) */}
+                    {salesperson && (
+                        <div className="flex md:hidden items-center gap-3 bg-white p-3 pr-6 rounded-full shadow-lg border border-slate-100 mt-[-20px] relative z-20 mb-4">
+                            <div className="text-left pl-2">
+                                <div className="font-bold text-slate-900 text-sm">{salesperson.imie} {salesperson.nazwisko}</div>
+                                <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Twój Opiekun</div>
+                            </div>
+                            <div className="h-6 w-px bg-slate-200 mx-1" />
+                            <a href={`tel:${salesperson.telefon}`} className="flex items-center justify-center w-8 h-8 bg-blue-50 text-blue-600 rounded-full">
+                                <Phone size={14} />
+                            </a>
+                            <a href={`mailto:${salesperson.email}`} className="flex items-center justify-center w-8 h-8 bg-blue-50 text-blue-600 rounded-full">
+                                <Mail size={14} />
+                            </a>
+                        </div>
+                    )}
                 </motion.div>
             </div>
          </div>
@@ -258,7 +296,7 @@ const ProposalView: React.FC = () => {
           </div>
       </section>
 
-      {/* 3. BUSINESS BENEFITS */}
+      {/* 3. BUSINESS BENEFITS - SLIDER FOR MOBILE */}
       <section className="py-20 px-6 bg-white">
           <div className="max-w-6xl mx-auto">
               <div className="text-center mb-16">
@@ -268,7 +306,43 @@ const ProposalView: React.FC = () => {
                   </h2>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
+              {/* MOBILE SLIDER (visible only on mobile) */}
+              <div className="md:hidden mb-20" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+                  <AnimatePresence mode="wait">
+                      <motion.div 
+                        key={currentBenefit}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.3 }}
+                        className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100 shadow-sm min-h-[320px] flex flex-col items-center justify-center text-center"
+                      >
+                          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-sm mb-6">
+                              {benefits[currentBenefit].icon}
+                          </div>
+                          <h3 className="text-xl font-bold text-slate-900 mb-3">{benefits[currentBenefit].title}</h3>
+                          <p className="text-slate-600 leading-relaxed font-medium text-sm">{benefits[currentBenefit].desc}</p>
+                      </motion.div>
+                  </AnimatePresence>
+                  
+                  {/* Slider Controls */}
+                  <div className="flex justify-center items-center gap-6 mt-6">
+                      <button onClick={prevBenefit} className="p-3 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-slate-900 shadow-sm">
+                          <ChevronLeft size={20} />
+                      </button>
+                      <div className="flex gap-2">
+                          {benefits.map((_, i) => (
+                              <div key={i} className={`w-2 h-2 rounded-full transition-colors ${i === currentBenefit ? 'bg-blue-600' : 'bg-slate-200'}`} />
+                          ))}
+                      </div>
+                      <button onClick={nextBenefit} className="p-3 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-slate-900 shadow-sm">
+                          <ChevronRight size={20} />
+                      </button>
+                  </div>
+              </div>
+
+              {/* DESKTOP GRID (visible only on desktop) */}
+              <div className="hidden md:grid grid-cols-3 gap-8 mb-20">
                   {benefits.map((b, i) => (
                       <div key={i} className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                           <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-sm mb-6">
@@ -280,7 +354,7 @@ const ProposalView: React.FC = () => {
                   ))}
               </div>
 
-              {/* 4. COMPARISON TABLE */}
+              {/* 4. COMPARISON TABLE / MOBILE CARDS */}
               <div className="bg-slate-900 rounded-[3rem] p-8 md:p-12 text-white overflow-hidden relative mb-20">
                   <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/20 rounded-full blur-[100px] -mr-20 -mt-20" />
                   
@@ -289,7 +363,8 @@ const ProposalView: React.FC = () => {
                       <p className="text-slate-400">Dopasuj sposób rozliczeń do swojego biznesu.</p>
                   </div>
 
-                  <div className="overflow-x-auto relative z-10 mb-8">
+                  {/* DESKTOP TABLE */}
+                  <div className="hidden md:block overflow-x-auto relative z-10 mb-8">
                       <table className="w-full text-left border-collapse min-w-[600px]">
                           <thead>
                               <tr className="border-b border-slate-700">
@@ -329,6 +404,54 @@ const ProposalView: React.FC = () => {
                               </tr>
                           </tbody>
                       </table>
+                  </div>
+
+                  {/* MOBILE CARDS (REPLACING TABLE) */}
+                  <div className="md:hidden space-y-6 relative z-10 mb-8">
+                      {/* Card 1: Prowizja */}
+                      <div className="bg-white/5 border border-slate-700 rounded-3xl p-6 relative overflow-hidden">
+                          <div className="absolute top-0 right-0 bg-green-500/20 text-green-400 text-[10px] font-black uppercase px-3 py-1 rounded-bl-xl border-l border-b border-green-500/30">
+                              Rekomendowany
+                          </div>
+                          <h3 className="text-xl font-black text-white flex items-center gap-2 mb-4">
+                              <ShieldCheck className="text-green-400" size={24} /> Model Prowizyjny
+                          </h3>
+                          <ul className="space-y-3 text-sm text-slate-300">
+                              <li className="flex justify-between border-b border-slate-800 pb-2">
+                                  <span>Koszt startowy</span> <span className="font-bold text-green-400">0 PLN</span>
+                              </li>
+                              <li className="flex justify-between border-b border-slate-800 pb-2">
+                                  <span>Ryzyko</span> <span className="font-bold text-green-400">Brak ryzyka</span>
+                              </li>
+                              <li className="flex justify-between border-b border-slate-800 pb-2">
+                                  <span>Cena dla Klienta</span> <span className="font-bold text-white">149 PLN</span>
+                              </li>
+                              <li className="flex justify-between pt-1">
+                                  <span>Rozliczenie</span> <span className="font-bold text-green-400">Miesięczne FV</span>
+                              </li>
+                          </ul>
+                      </div>
+
+                      {/* Card 2: Pakiet */}
+                      <div className="bg-slate-950/50 border border-slate-800 rounded-3xl p-6">
+                          <h3 className="text-xl font-black text-white flex items-center gap-2 mb-4">
+                              <Layers className="text-blue-400" size={24} /> Model Pakietowy
+                          </h3>
+                          <ul className="space-y-3 text-sm text-slate-400">
+                              <li className="flex justify-between border-b border-slate-800 pb-2">
+                                  <span>Koszt startowy</span> <span className="font-bold text-slate-300">od 50 zł/szt</span>
+                              </li>
+                              <li className="flex justify-between border-b border-slate-800 pb-2">
+                                  <span>Ryzyko</span> <span className="font-bold text-slate-300">Średnie</span>
+                              </li>
+                              <li className="flex justify-between border-b border-slate-800 pb-2">
+                                  <span>Cena dla Klienta</span> <span className="font-bold text-white">Twój wybór</span>
+                              </li>
+                              <li className="flex justify-between pt-1">
+                                  <span>Rozliczenie</span> <span className="font-bold text-slate-300">Z góry (Prepaid)</span>
+                              </li>
+                          </ul>
+                      </div>
                   </div>
 
                   {/* DODATKOWY BUTTON W SEKCJI TABELI */}
