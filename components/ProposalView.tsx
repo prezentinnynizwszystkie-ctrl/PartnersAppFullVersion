@@ -477,7 +477,7 @@ const ProposalView: React.FC = () => {
                   <div className="max-w-2xl mx-auto mb-10 text-center">
                       <h4 className="text-blue-600 font-bold uppercase tracking-widest text-xs mb-2">Potencjał Rynku</h4>
                       <p className="text-slate-500 font-medium leading-relaxed">
-                          Nasze badania rynku wykazały, że ponad <span className="text-slate-900 font-bold">67%</span> rodziców organizujących urodziny w centrach rozrywki, jest zainteresowane zakupem AudioBajki.
+                          Nasze badania rynku wykazały, że ponad <span className="text-slate-900 font-bold">67%</span> rodziców organizujących urodziny w centrach rozrywki, jest zainteresowane zakupem MultiBajki.
                       </p>
                   </div>
 
