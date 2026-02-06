@@ -916,4 +916,4 @@ const PartnerLanding: React.FC = () => {
   );
 };
 
-export default ProposalViewDemo;
+export default PartnerLanding;
