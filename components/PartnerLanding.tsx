@@ -124,13 +124,7 @@ const AgeCard = ({ ageKey, title, description, color, bgColor, borderColor, badg
                     {description}
                 </p>
                 <div className="mt-auto">
-                    <button 
-                        onClick={onPlaySample}
-                        className="w-full py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all bg-white border-2 border-slate-200 text-slate-600 hover:border-blue-400 hover:text-blue-600 hover:shadow-sm"
-                    >
-                        <Play size={16} fill="currentColor" />
-                        Zobacz przykładowy fragment
-                    </button>
+                    {/* Button removed here */}
                 </div>
             </div>
         </div>
