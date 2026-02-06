@@ -651,7 +651,7 @@ const PartnerLanding: React.FC = () => {
                                 </div>
                                 <div className="font-bold text-white leading-tight text-sm">
                                     Nie masz czasu czytać? <br/>
-                                    <span className="text-[#fccb00]">Posłuchaj (3 min)</span>
+                                    <span className="text-[#fccb00]">Posłuchaj!</span>
                                 </div>
                             </div>
                             {/* Simple Visualizer Animation if playing */}
