@@ -49,6 +49,9 @@ const App: React.FC = () => {
             {/* New Route: Personalized B2B Offer */}
             <Route path="/:slug/oferta-b2b" element={<OfferB2BApp />} />
 
+            {/* Personalized Proposal Summary (Short link) */}
+            <Route path="/p/:id" element={<ProposalView />} />
+
             {/* NEW: Personalized Proposal Summary (Post-meeting) - OLD DYNAMIC */}
             <Route path="/:slug/propozycja" element={<ProposalView />} />
 
