@@ -14,10 +14,10 @@ import {
 const DEFAULT_PROPOSAL_PHOTO = "https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/UniversalPhotos/UniversalProposalPhoto3.webp";
 
 const ProposalView: React.FC = () => {
-  const { slug } = useParams<{ slug: string }>();
-  const location = useLocation();
+  const { slug, id } = useParams<{ slug?: string; id?: string }>();
   const [partner, setPartner] = useState<Partner | null>(null);
   const [salesperson, setSalesperson] = useState<Handlowiec | null>(null);
+  const [customHeader, setCustomHeader] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
   // Audio Player State
@@ -32,28 +32,45 @@ const ProposalView: React.FC = () => {
   const [currentBenefit, setCurrentBenefit] = useState(0);
   const touchStart = useRef<number | null>(null);
 
-  // Custom Photo from URL query param ?img=...
-  const queryParams = new URLSearchParams(location.search);
-  const customPhotoUrl = queryParams.get('img');
-
   useEffect(() => {
     const fetchData = async () => {
-      if (!slug) return;
-
+      setLoading(true);
       try {
-        // 1. Fetch Partner
-        const { data: partnerData, error } = await supabase
-          .schema('PartnersApp')
-          .from('Partners')
-          .select('*')
-          .eq('Slug', slug)
-          .single();
+        let partnerData: Partner | null = null;
 
-        if (error || !partnerData) throw new Error('Partner not found');
-        setPartner(partnerData);
+        // SCENARIUSZ A: Link z ID Propozycji (Nowy)
+        if (id) {
+          const { data: proposal, error: propError } = await supabase
+            .schema('PartnersApp')
+            .from('Proposals')
+            .select('*, Partners(*)')
+            .eq('id', id)
+            .single();
 
-        // 2. Fetch Salesperson
-        if (partnerData.IdOpiekuna) {
+          if (propError || !proposal) throw new Error('Proposal not found');
+          
+          partnerData = proposal.Partners;
+          setCustomHeader(proposal.custom_header);
+        } 
+        // SCENARIUSZ B: Link ze Slugiem Partnera (Klasyczny)
+        else if (slug) {
+          const { data, error } = await supabase
+            .schema('PartnersApp')
+            .from('Partners')
+            .select('*')
+            .eq('Slug', slug)
+            .single();
+
+          if (error || !data) throw new Error('Partner not found');
+          partnerData = data;
+          setCustomHeader(null); // Brak niestandardowego nagłówka
+        }
+
+        if (partnerData) {
+          setPartner(partnerData);
+
+          // Fetch Salesperson
+          if (partnerData.IdOpiekuna) {
             const { data: salesData } = await supabase
                 .schema('PartnersApp')
                 .from('Handlowcy')
@@ -61,6 +78,7 @@ const ProposalView: React.FC = () => {
                 .eq('id', partnerData.IdOpiekuna)
                 .single();
             if (salesData) setSalesperson(salesData);
+          }
         }
       } catch (e) {
         console.error(e);
@@ -69,27 +87,15 @@ const ProposalView: React.FC = () => {
       }
     };
     fetchData();
-  }, [slug]);
+  }, [slug, id]);
 
   const toggleAudio = () => {
       if (!audioRef.current) return;
-      
       if (isPlayingAudio) {
           audioRef.current.pause();
           setIsPlayingAudio(false);
       } else {
-          if (audioRef.current.ended) {
-              audioRef.current.currentTime = 0;
-          }
-          const playPromise = audioRef.current.play();
-          if (playPromise !== undefined) {
-              playPromise
-                  .then(() => setIsPlayingAudio(true))
-                  .catch(error => {
-                      console.error("Audio play failed:", error);
-                      setIsPlayingAudio(false);
-                  });
-          }
+          audioRef.current.play().then(() => setIsPlayingAudio(true)).catch(console.error);
       }
   };
 
@@ -125,14 +131,8 @@ const ProposalView: React.FC = () => {
   if (!partner) return <div className="min-h-screen flex items-center justify-center">Nie znaleziono oferty.</div>;
 
   const primaryColor = partner.Theme?.primaryColor || "#3b82f6";
-  
-  // LOGIKA ZDJĘCIA: 
-  // 1. URL Parameter (Testowanie)
-  // 2. Baza Danych Partnera (ProposalPhotoUrl)
-  // 3. Default Hardcoded
-  const displayPhotoUrl = customPhotoUrl || partner.ProposalPhotoUrl || DEFAULT_PROPOSAL_PHOTO;
-
-  const audioSource = partner.IntroUrl || "https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/Others/articles/PartnerArticleUniversal.mp3";
+  const displayPhotoUrl = partner.ProposalPhotoUrl || DEFAULT_PROPOSAL_PHOTO;
+  const audioSource = partner.IntroUrl || "https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/Others/Probki/maluchy%20background.mp3";
 
   const benefits = [
     {
@@ -171,7 +171,6 @@ const ProposalView: React.FC = () => {
          <div className="absolute top-0 left-0 w-full h-[60vh] bg-gradient-to-b from-blue-50 to-[#FDFBF7] -z-10" />
          
          <div className="max-w-6xl mx-auto w-full h-full">
-            {/* Logo Partnera */}
             <div className="flex justify-center md:justify-start mb-4">
                  {partner.LogoUrl ? (
                     <img src={partner.LogoUrl} alt={partner.PartnerName} className="h-16 md:h-24 w-auto object-contain drop-shadow-sm" />
@@ -184,14 +183,13 @@ const ProposalView: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-start md:items-center h-full">
                 
-                {/* Left: Text Content */}
                 <motion.div 
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="md:col-span-7 space-y-6 text-center md:text-left z-10 pt-2"
                 >
                     <h1 className="text-4xl md:text-6xl font-display font-black leading-tight text-slate-900">
-                        Cześć, <span style={{color: primaryColor}}>Ekipo {partner.PartnerName}!</span>
+                        {customHeader ? customHeader : `Cześć, Ekipo ${partner.PartnerName}!`}
                     </h1>
                     <div className="space-y-4 text-lg text-slate-600 font-medium leading-relaxed max-w-2xl mx-auto md:mx-0">
                         <p>
@@ -202,7 +200,6 @@ const ProposalView: React.FC = () => {
                         </p>
                     </div>
                     
-                    {/* Salesperson Contact Info - Optional Display */}
                     {salesperson && (
                         <div className="hidden md:inline-flex items-center gap-4 bg-white p-3 pr-6 rounded-full shadow-sm border border-slate-200 mt-2">
                             <div className="text-left pl-2">
@@ -220,17 +217,13 @@ const ProposalView: React.FC = () => {
                     )}
                 </motion.div>
 
-                {/* Right: Custom Photo */}
                 <motion.div 
                     initial={{ opacity: 0, y: 50 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
                     className="md:col-span-5 relative flex flex-col items-center justify-start md:justify-center mt-4 md:mt-0"
                 >
-                    {/* Blob Background */}
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 md:w-80 md:h-80 bg-gradient-to-tr from-blue-200 to-indigo-100 rounded-full blur-3xl opacity-60 -z-10" />
-                    
-                    {/* Image */}
                     <img 
                         src={displayPhotoUrl}
                         alt="Propozycja" 
@@ -240,7 +233,6 @@ const ProposalView: React.FC = () => {
             </div>
          </div>
 
-         {/* PULSUJĄCA STRZAŁKA NA DOLE */}
          <div className="absolute bottom-6 left-0 right-0 flex justify-center pointer-events-none">
             <div className="animate-bounce bg-white/80 backdrop-blur p-2 rounded-full shadow-lg border border-slate-100 text-blue-600">
                 <ChevronDown size={24} strokeWidth={3} />
@@ -248,13 +240,12 @@ const ProposalView: React.FC = () => {
          </div>
       </section>
 
-      {/* 2. VIDEO SECTION (21:9) */}
+      {/* 2. VIDEO SECTION */}
       <section className="py-12 px-6 bg-slate-900 text-white overflow-hidden">
           <div className="max-w-6xl mx-auto">
               <div className="text-center mb-8">
                   <h2 className="text-2xl md:text-3xl font-display font-black uppercase tracking-wide">Zobacz jak to działa</h2>
               </div>
-              
               <div className="relative w-full aspect-[21/9] bg-black rounded-[2rem] overflow-hidden shadow-2xl border-4 border-slate-700 group">
                   <video 
                       ref={videoRef}
@@ -265,12 +256,8 @@ const ProposalView: React.FC = () => {
                       onPlay={() => setIsVideoPlaying(true)}
                       onPause={() => setIsVideoPlaying(false)}
                   />
-                  
                   {!isVideoPlaying && (
-                      <button 
-                          onClick={toggleVideo}
-                          className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/30 transition-colors z-20"
-                      >
+                      <button onClick={toggleVideo} className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/30 transition-colors z-20">
                           <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/50 shadow-2xl group-hover:scale-110 transition-transform">
                               <Play size={32} fill="white" className="ml-1 text-white" />
                           </div>
@@ -280,7 +267,7 @@ const ProposalView: React.FC = () => {
           </div>
       </section>
 
-      {/* 3. BUSINESS BENEFITS - SLIDER FOR MOBILE */}
+      {/* 3. BENEFITS SLIDER */}
       <section className="py-20 px-6 bg-white">
           <div className="max-w-6xl mx-auto">
               <div className="text-center mb-16">
@@ -290,7 +277,6 @@ const ProposalView: React.FC = () => {
                   </h2>
               </div>
 
-              {/* MOBILE SLIDER (visible only on mobile) */}
               <div className="md:hidden mb-20" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
                   <AnimatePresence mode="wait">
                       <motion.div 
@@ -298,7 +284,6 @@ const ProposalView: React.FC = () => {
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.3 }}
                         className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100 shadow-sm min-h-[320px] flex flex-col items-center justify-center text-center"
                       >
                           <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-sm mb-6">
@@ -308,282 +293,104 @@ const ProposalView: React.FC = () => {
                           <p className="text-slate-600 leading-relaxed font-medium text-sm">{benefits[currentBenefit].desc}</p>
                       </motion.div>
                   </AnimatePresence>
-                  
-                  {/* Slider Controls */}
                   <div className="flex justify-center items-center gap-6 mt-6">
-                      <button onClick={prevBenefit} className="p-3 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-slate-900 shadow-sm">
-                          <ChevronLeft size={20} />
-                      </button>
-                      <div className="flex gap-2">
-                          {benefits.map((_, i) => (
-                              <div key={i} className={`w-2 h-2 rounded-full transition-colors ${i === currentBenefit ? 'bg-blue-600' : 'bg-slate-200'}`} />
-                          ))}
-                      </div>
-                      <button onClick={nextBenefit} className="p-3 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-slate-900 shadow-sm">
-                          <ChevronRight size={20} />
-                      </button>
+                      <button onClick={prevBenefit} className="p-3 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-slate-900 shadow-sm"><ChevronLeft size={20} /></button>
+                      <div className="flex gap-2">{benefits.map((_, i) => (<div key={i} className={`w-2 h-2 rounded-full transition-colors ${i === currentBenefit ? 'bg-blue-600' : 'bg-slate-200'}`} />))}</div>
+                      <button onClick={nextBenefit} className="p-3 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-slate-900 shadow-sm"><ChevronRight size={20} /></button>
                   </div>
               </div>
 
-              {/* DESKTOP GRID (visible only on desktop) */}
               <div className="hidden md:grid grid-cols-3 gap-8 mb-20">
                   {benefits.map((b, i) => (
                       <div key={i} className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-sm mb-6">
-                              {b.icon}
-                          </div>
+                          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-sm mb-6">{b.icon}</div>
                           <h3 className="text-xl font-bold text-slate-900 mb-3">{b.title}</h3>
                           <p className="text-slate-600 leading-relaxed font-medium">{b.desc}</p>
                       </div>
                   ))}
               </div>
 
-              {/* 4. COMPARISON TABLE / MOBILE CARDS */}
               <div className="bg-slate-900 rounded-[3rem] p-8 md:p-12 text-white overflow-hidden relative mb-20">
                   <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/20 rounded-full blur-[100px] -mr-20 -mt-20" />
-                  
                   <div className="text-center mb-10 relative z-10">
                       <h2 className="text-3xl font-display font-black mb-2">Wybierz swój model</h2>
                       <p className="text-slate-400">Dopasuj sposób rozliczeń do swojego biznesu.</p>
                   </div>
-
-                  {/* DESKTOP TABLE */}
-                  <div className="hidden md:block overflow-x-auto relative z-10 mb-8">
+                  <div className="overflow-x-auto relative z-10 mb-8">
                       <table className="w-full text-left border-collapse min-w-[600px]">
                           <thead>
                               <tr className="border-b border-slate-700">
                                   <th className="p-4 text-sm font-bold text-slate-400 uppercase tracking-wider w-1/3">Cecha</th>
-                                  <th className="p-4 text-lg font-black text-white w-1/3 bg-white/5 rounded-t-2xl border-x border-t border-slate-700/50">
-                                      <div className="flex items-center gap-2 justify-center">
-                                          <ShieldCheck className="text-green-400" size={20} /> Model Prowizyjny
-                                      </div>
-                                  </th>
-                                  <th className="p-4 text-lg font-black text-white w-1/3">
-                                      <div className="flex items-center gap-2 justify-center">
-                                          <Layers className="text-blue-400" size={20} /> Model Pakietowy
-                                      </div>
-                                  </th>
+                                  <th className="p-4 text-lg font-black text-white w-1/3 bg-white/5 rounded-t-2xl border-x border-t border-slate-700/50 text-center"><ShieldCheck className="inline text-green-400 mr-2" size={20} /> Prowizyjny</th>
+                                  <th className="p-4 text-lg font-black text-white w-1/3 text-center"><Layers className="inline text-blue-400 mr-2" size={20} /> Pakietowy</th>
                               </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-800">
-                              <tr>
-                                  <td className="p-6 font-bold text-slate-300">Koszt startowy</td>
-                                  <td className="p-6 text-center font-bold bg-white/5 border-x border-slate-700/50 text-green-400">0 PLN</td>
-                                  <td className="p-6 text-center font-bold text-slate-300">od 50 zł za bajkę</td>
-                              </tr>
-                              <tr>
-                                  <td className="p-6 font-bold text-slate-300">Ryzyko</td>
-                                  <td className="p-6 text-center font-bold bg-white/5 border-x border-slate-700/50 text-green-400">Brak ryzyka</td>
-                                  <td className="p-6 text-center font-bold text-slate-300">Zależne od sprzedaży</td>
-                              </tr>
-                              <tr>
-                                  <td className="p-6 font-bold text-slate-300">Cena dla Klienta</td>
-                                  <td className="p-6 text-center font-bold bg-white/5 border-x border-slate-700/50 text-green-300">Sugerowana 149 PLN</td>
-                                  <td className="p-6 text-center font-bold text-slate-300">Ty decydujesz</td>
-                              </tr>
-                              <tr>
-                                  <td className="p-6 font-bold text-slate-300">Rozliczenie</td>
-                                  <td className="p-6 text-center font-bold bg-white/5 border-x border-slate-700/50 rounded-b-2xl text-green-400">Raz w miesiącu - FV</td>
-                                  <td className="p-6 text-center font-bold text-slate-300">Z góry</td>
-                              </tr>
+                              <tr><td className="p-6 font-bold text-slate-300">Koszt startowy</td><td className="p-6 text-center font-bold bg-white/5 border-x border-slate-700/50 text-green-400">0 PLN</td><td className="p-6 text-center font-bold text-slate-300">od 50 zł za bajkę</td></tr>
+                              <tr><td className="p-6 font-bold text-slate-300">Ryzyko</td><td className="p-6 text-center font-bold bg-white/5 border-x border-slate-700/50 text-green-400">Brak ryzyka</td><td className="p-6 text-center font-bold text-slate-300">Zależne od sprzedaży</td></tr>
+                              <tr><td className="p-6 font-bold text-slate-300">Cena dla Klienta</td><td className="p-6 text-center font-bold bg-white/5 border-x border-slate-700/50 text-green-300">Sugerowana 149 PLN</td><td className="p-6 text-center font-bold text-slate-300">Ty decydujesz</td></tr>
+                              <tr><td className="p-6 font-bold text-slate-300">Rozliczenie</td><td className="p-6 text-center font-bold bg-white/5 border-x border-slate-700/50 rounded-b-2xl text-green-400">Miesięczne FV</td><td className="p-6 text-center font-bold text-slate-300">Z góry</td></tr>
                           </tbody>
                       </table>
                   </div>
-
-                  {/* MOBILE CARDS (REPLACING TABLE) */}
-                  <div className="md:hidden space-y-6 relative z-10 mb-8">
-                      {/* Card 1: Prowizja */}
-                      <div className="bg-white/5 border border-slate-700 rounded-3xl p-6 relative overflow-hidden">
-                          <div className="absolute top-0 right-0 bg-green-500/20 text-green-400 text-[10px] font-black uppercase px-3 py-1 rounded-bl-xl border-l border-b border-green-500/30">
-                              Rekomendowany
-                          </div>
-                          <h3 className="text-xl font-black text-white flex items-center gap-2 mb-4">
-                              <ShieldCheck className="text-green-400" size={24} /> Model Prowizyjny
-                          </h3>
-                          <ul className="space-y-3 text-sm text-slate-300">
-                              <li className="flex justify-between border-b border-slate-800 pb-2">
-                                  <span>Koszt startowy</span> <span className="font-bold text-green-400">0 PLN</span>
-                              </li>
-                              <li className="flex justify-between border-b border-slate-800 pb-2">
-                                  <span>Ryzyko</span> <span className="font-bold text-green-400">Brak ryzyka</span>
-                              </li>
-                              <li className="flex justify-between border-b border-slate-800 pb-2">
-                                  <span>Cena dla Klienta</span> <span className="font-bold text-white">149 PLN</span>
-                              </li>
-                              <li className="flex justify-between pt-1">
-                                  <span>Rozliczenie</span> <span className="font-bold text-green-400">Miesięczne FV</span>
-                              </li>
-                          </ul>
-                      </div>
-
-                      {/* Card 2: Pakiet */}
-                      <div className="bg-slate-950/50 border border-slate-800 rounded-3xl p-6">
-                          <h3 className="text-xl font-black text-white flex items-center gap-2 mb-4">
-                              <Layers className="text-blue-400" size={24} /> Model Pakietowy
-                          </h3>
-                          <ul className="space-y-3 text-sm text-slate-400">
-                              <li className="flex justify-between border-b border-slate-800 pb-2">
-                                  <span>Koszt startowy</span> <span className="font-bold text-slate-300">od 50 zł/szt</span>
-                              </li>
-                              <li className="flex justify-between border-b border-slate-800 pb-2">
-                                  <span>Ryzyko</span> <span className="font-bold text-slate-300">Średnie</span>
-                              </li>
-                              <li className="flex justify-between border-b border-slate-800 pb-2">
-                                  <span>Cena dla Klienta</span> <span className="font-bold text-white">Twój wybór</span>
-                              </li>
-                              <li className="flex justify-between pt-1">
-                                  <span>Rozliczenie</span> <span className="font-bold text-slate-300">Z góry (Prepaid)</span>
-                              </li>
-                          </ul>
-                      </div>
-                  </div>
-
-                  {/* DODATKOWY BUTTON W SEKCJI TABELI */}
                   <div className="flex justify-center relative z-10">
-                      <Link 
-                          to={`/${partner.Slug}/oferta-b2b`} 
-                          target="_blank"
-                          className="px-8 py-3 bg-[#fccb00] text-black rounded-xl font-black text-sm hover:bg-[#e5b800] transition-colors shadow-lg flex items-center gap-2"
-                      >
+                      <Link to={`/${partner.Slug}/oferta-b2b`} target="_blank" className="px-8 py-3 bg-[#fccb00] text-black rounded-xl font-black text-sm hover:bg-[#e5b800] transition-colors shadow-lg flex items-center gap-2">
                           <Briefcase size={18} /> ZOBACZ PEŁNĄ OFERTĘ B2B
                       </Link>
                   </div>
               </div>
-
-              {/* KALKULATOR ZOSTAŁ USUNIĘTY ZGODNIE Z PROŚBĄ */}
-
           </div>
       </section>
 
-      {/* 6. PSYCHOLOGY & AUDIO */}
+      {/* 4. PSYCHOLOGY SECTION */}
       <section className="py-20 px-6 bg-[#f8f9fc] relative border-t border-slate-200">
           <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
-              
               <div className="order-2 md:order-1 relative">
                   <div className="absolute inset-0 bg-blue-600 rounded-full blur-[100px] opacity-10" />
-                  <div className="relative bg-white p-8 md:p-10 rounded-[2.5rem] shadow-xl border border-slate-100">
-                      <div className="flex items-center gap-4 mb-6">
-                          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
-                              <Headphones size={24} />
-                          </div>
-                          <div>
-                              <div className="text-xs font-black text-slate-400 uppercase tracking-widest">Audio Materiał</div>
-                              <div className="font-bold text-slate-900">Dlaczego to działa?</div>
-                          </div>
+                  <div className="relative bg-white p-8 md:p-10 rounded-[2.5rem] shadow-xl border border-slate-100 text-center">
+                      <div className="flex items-center gap-4 mb-6 text-left">
+                          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center"><Headphones size={24} /></div>
+                          <div><div className="text-xs font-black text-slate-400 uppercase tracking-widest">Audio Materiał</div><div className="font-bold text-slate-900">Dlaczego to działa?</div></div>
                       </div>
-                      
-                      {/* Fake Waveform */}
-                      <div className="flex items-center gap-1 h-12 mb-8 justify-center opacity-50">
-                          {[...Array(20)].map((_, i) => (
-                              <motion.div 
-                                  key={i}
-                                  animate={isPlayingAudio ? { height: [16, 48, 16] } : { height: 16 }}
-                                  transition={{ repeat: Infinity, duration: 1, delay: i * 0.05 }}
-                                  className="w-1.5 bg-slate-900 rounded-full"
-                              />
-                          ))}
-                      </div>
-
-                      <div className="flex justify-center">
-                          <button 
-                              onClick={toggleAudio}
-                              className="w-16 h-16 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
-                          >
-                              {isPlayingAudio ? <div className="w-4 h-4 bg-white rounded-sm" /> : <Play size={24} className="ml-1" fill="white" />}
-                          </button>
-                      </div>
-                      
-                      {/* Audio URL from DB or Fallback - ADDED KEY FOR REFRESH */}
-                      <audio 
-                          key={audioSource} 
-                          ref={audioRef} 
-                          src={audioSource} 
-                          onEnded={() => setIsPlayingAudio(false)} 
-                          className="hidden" 
-                      />
+                      <div className="flex items-center gap-1 h-12 mb-8 justify-center opacity-50">{[...Array(20)].map((_, i) => (<motion.div key={i} animate={isPlayingAudio ? { height: [16, 48, 16] } : { height: 16 }} transition={{ repeat: Infinity, duration: 1, delay: i * 0.05 }} className="w-1.5 bg-slate-900 rounded-full" />))}</div>
+                      <button onClick={toggleAudio} className="w-16 h-16 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform">{isPlayingAudio ? <div className="w-4 h-4 bg-white rounded-sm" /> : <Play size={24} className="ml-1" fill="white" />}</button>
+                      <audio ref={audioRef} src={audioSource} onEnded={() => setIsPlayingAudio(false)} className="hidden" />
                   </div>
               </div>
-
               <div className="order-1 md:order-2 space-y-6">
-                  <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center mb-4">
-                      <Brain size={28} />
-                  </div>
-                  <h2 className="text-3xl md:text-5xl font-display font-black text-slate-900 leading-tight">
-                      Więcej niż zabawa. <br/> To budowanie <span className="text-purple-600">pewności siebie.</span>
-                  </h2>
-                  <p className="text-lg text-slate-600 font-medium leading-relaxed">
-                      Nasze bajki wykorzystują tzw. "efekt odniesienia do Ja". Dziecko słysząc swoje imię w roli bohatera, buduje silne poczucie sprawczości. To pamiątka, która nie ląduje w kącie po tygodniu.
-                  </p>
+                  <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center mb-4"><Brain size={28} /></div>
+                  <h2 className="text-3xl md:text-5xl font-display font-black text-slate-900 leading-tight">Więcej niż zabawa. <br/> To budowanie <span className="text-purple-600">pewności siebie.</span></h2>
+                  <p className="text-lg text-slate-600 font-medium leading-relaxed">Nasze bajki wykorzystują tzw. "efekt odniesienia do Ja". Dziecko słysząc swoje imię w roli bohatera, buduje silne poczucie sprawczości.</p>
                   <ul className="space-y-3">
-                      <li className="flex items-center gap-3 font-bold text-slate-700">
-                          <CheckCircle2 className="text-green-500" /> Wzrost samooceny dziecka
-                      </li>
-                      <li className="flex items-center gap-3 font-bold text-slate-700">
-                          <CheckCircle2 className="text-green-500" /> Budowanie więzi z rodzicem (wspólne czytanie)
-                      </li>
-                      <li className="flex items-center gap-3 font-bold text-slate-700">
-                          <CheckCircle2 className="text-green-500" /> Trwała pamiątka z urodzin w {partner.PartnerName}
-                      </li>
+                      <li className="flex items-center gap-3 font-bold text-slate-700"><CheckCircle2 className="text-green-500" /> Wzrost samooceny dziecka</li>
+                      <li className="flex items-center gap-3 font-bold text-slate-700"><CheckCircle2 className="text-green-500" /> Budowanie więzi z rodzicem</li>
+                      <li className="flex items-center gap-3 font-bold text-slate-700"><CheckCircle2 className="text-green-500" /> Trwała pamiątka z urodzin</li>
                   </ul>
               </div>
-
           </div>
       </section>
 
-      {/* 7. PREVIEW APP & CTA */}
+      {/* 5. PREVIEW SECTION */}
       <section className="py-20 px-6 bg-slate-900 text-white overflow-hidden">
           <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-16 items-center">
-              
               <div className="flex-1 space-y-8">
-                  <h2 className="text-3xl md:text-5xl font-display font-black leading-tight">
-                      Tak wygląda Twoja aplikacja dla rodzica.
-                  </h2>
-                  <p className="text-slate-400 text-lg leading-relaxed max-w-lg">
-                      Przygotowaliśmy już dla Ciebie spersonalizowany widok, który zobaczą Twoi klienci. Jest w pełni gotowy, z Twoim logo i kolorystyką.
-                  </p>
-                  
+                  <h2 className="text-3xl md:text-5xl font-display font-black leading-tight">Tak wygląda Twoja aplikacja dla rodzica.</h2>
+                  <p className="text-slate-400 text-lg leading-relaxed max-w-lg">Przygotowaliśmy już dla Ciebie spersonalizowany widok, który zobaczą Twoi klienci. Jest w pełni gotowy, z Twoim logo i kolorystyką.</p>
                   <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                      <Link 
-                          to={`/${partner.Slug}/oferta-b2b`} 
-                          target="_blank"
-                          className="px-8 py-4 bg-[#fccb00] text-black rounded-2xl font-black text-lg hover:bg-[#e5b800] transition-transform hover:scale-105 shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2"
-                      >
-                          <DollarSign size={20} /> ZOBACZ PEŁNĄ OFERTĘ B2B
-                      </Link>
-                      
-                      <Link 
-                          to={`/${partner.Slug}`} 
-                          target="_blank"
-                          className="px-8 py-4 bg-white/10 text-white border border-white/20 rounded-2xl font-bold text-lg hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
-                      >
-                          <ExternalLink size={20} /> Otwórz aplikację w nowym oknie
-                      </Link>
+                      <Link to={`/${partner.Slug}/oferta-b2b`} target="_blank" className="px-8 py-4 bg-[#fccb00] text-black rounded-2xl font-black text-lg hover:bg-[#e5b800] transition-transform hover:scale-105 shadow-xl flex items-center justify-center gap-2"><DollarSign size={20} /> ZOBACZ PEŁNĄ OFERTĘ B2B</Link>
+                      <Link to={`/${partner.Slug}`} target="_blank" className="px-8 py-4 bg-white/10 text-white border border-white/20 rounded-2xl font-bold text-lg hover:bg-white/20 transition-colors flex items-center justify-center gap-2"><ExternalLink size={20} /> Otwórz aplikację</Link>
                   </div>
               </div>
-
-              {/* MOCKUP TELEFONU Z LIVE PREVIEW IFRAME */}
               <div className="relative w-[300px] md:w-[360px] aspect-[9/16] bg-slate-800 rounded-[2.5rem] border-[8px] border-slate-700 shadow-2xl overflow-hidden shrink-0 transform rotate-[-2deg] hover:rotate-0 transition-transform duration-500">
-                  {/* Pasek statusu fake */}
-                  <div className="absolute top-0 inset-x-0 h-6 bg-black z-20 flex justify-center">
-                      <div className="w-1/3 h-full bg-black rounded-b-xl" />
-                  </div>
-                  
-                  {/* IFRAME: Pointing to /#/slug to load the real app in SPA mode */}
-                  <iframe 
-                      src={`/#/${partner.Slug}`} 
-                      className="w-full h-full bg-white"
-                      title="Podgląd Aplikacji"
-                  />
+                  <div className="absolute top-0 inset-x-0 h-6 bg-black z-20 flex justify-center"><div className="w-1/3 h-full bg-black rounded-b-xl" /></div>
+                  <iframe src={`/#/${partner.Slug}`} className="w-full h-full bg-white" title="Podgląd Aplikacji" />
               </div>
-
           </div>
       </section>
 
-      {/* FOOTER */}
       <footer className="py-12 text-center text-slate-400 text-sm bg-slate-950 border-t border-slate-900">
-          <p>© 2026 MultiBajka Experience dla {partner.PartnerName}. Wszelkie prawa zastrzeżone.</p>
+          <p>© 2026 MultiBajka Experience dla {partner.PartnerName}.</p>
       </footer>
-
     </div>
   );
 };
