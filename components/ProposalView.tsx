@@ -132,7 +132,7 @@ const ProposalView: React.FC = () => {
 
   const primaryColor = partner.Theme?.primaryColor || "#3b82f6";
   const displayPhotoUrl = partner.ProposalPhotoUrl || DEFAULT_PROPOSAL_PHOTO;
-  const audioSource = partner.IntroUrl || "https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/Others/Probki/maluchy%20background.mp3";
+  const audioSource = partner.IntroUrl || "https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/Others/articles/PartnerArticleUniversal.mp3";
 
   const benefits = [
     {
