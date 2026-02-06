@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import SliderControls from './SliderControls';
 
@@ -140,19 +141,6 @@ const ImplementationSection: React.FC<ImplementationSectionProps> = ({ centerNam
                             <div className="text-xs font-black text-blue-200 uppercase tracking-widest mb-1">Krok {s.id}</div>
                             <h3 className="text-sm md:text-base font-black text-slate-900 uppercase leading-tight mb-2">{s.title}</h3>
                             <p className="text-xs md:text-sm text-slate-500 font-medium leading-relaxed">{s.desc}</p>
-                            
-                            {/* LINK TESTOWY DLA KROKU 3 - Otwiera w nowej karcie */}
-                            {s.id === 3 && (
-                                <a 
-                                    href="https://knotek-v11-380221505176.us-west1.run.app"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="mt-4 px-5 py-2 bg-blue-600 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-md hover:bg-blue-700 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
-                                >
-                                    <i className="fa-solid fa-mobile-screen-button"></i>
-                                    Przetestuj aplikację
-                                </a>
-                            )}
                         </div>
                     ))}
                 </div>
@@ -225,19 +213,6 @@ const ImplementationSection: React.FC<ImplementationSectionProps> = ({ centerNam
                                     <div className="text-xs font-black text-blue-200 uppercase tracking-widest mb-1">Krok {s.id}</div>
                                     <h3 className="text-sm font-black text-slate-900 uppercase leading-tight mb-2">{s.title}</h3>
                                     <p className="text-xs text-slate-500 font-medium leading-relaxed">{s.desc}</p>
-                                    
-                                    {/* LINK TESTOWY DLA KROKU 3 - MOBILE - Otwiera w nowej karcie */}
-                                    {s.id === 3 && (
-                                        <a 
-                                            href="https://copy-of-knotek-v10-06-380221505176.us-west1.run.app"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="mt-3 px-4 py-2 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider rounded-full shadow-md hover:bg-blue-700 transition-all active:scale-95 flex items-center gap-2"
-                                        >
-                                            <i className="fa-solid fa-mobile-screen-button"></i>
-                                            Przetestuj aplikację
-                                        </a>
-                                    )}
                                 </div>
                             </div>
                         ))}
