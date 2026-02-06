@@ -1,5 +1,6 @@
+
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { supabase } from '../utils/supabaseClient';
 import { Partner, Handlowiec } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -7,11 +8,14 @@ import {
   Play, Phone, Mail, Brain, Headphones, 
   CheckCircle2, DollarSign, ExternalLink, ChevronLeft, Loader2,
   Gem, Trophy, Megaphone, ShieldCheck, Layers, Briefcase, Pause,
-  ChevronRight, ArrowRight
+  ChevronRight, ArrowRight, ChevronDown
 } from 'lucide-react';
+
+const DEFAULT_PROPOSAL_PHOTO = "https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/UniversalPhotos/UniversalProposalPhoto3.webp";
 
 const ProposalView: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
+  const location = useLocation();
   const [partner, setPartner] = useState<Partner | null>(null);
   const [salesperson, setSalesperson] = useState<Handlowiec | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,12 +28,13 @@ const ProposalView: React.FC = () => {
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Profit Calc State (Domyślnie 50)
-  const [parties, setParties] = useState<string>('50');
-
   // Slider State for Mobile Benefits
   const [currentBenefit, setCurrentBenefit] = useState(0);
   const touchStart = useRef<number | null>(null);
+
+  // Custom Photo from URL query param ?img=...
+  const queryParams = new URLSearchParams(location.search);
+  const customPhotoUrl = queryParams.get('img');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -73,7 +78,6 @@ const ProposalView: React.FC = () => {
           audioRef.current.pause();
           setIsPlayingAudio(false);
       } else {
-          // Reset if ended
           if (audioRef.current.ended) {
               audioRef.current.currentTime = 0;
           }
@@ -120,17 +124,14 @@ const ProposalView: React.FC = () => {
   if (loading) return <div className="min-h-screen bg-white flex items-center justify-center"><Loader2 className="animate-spin text-slate-300" /></div>;
   if (!partner) return <div className="min-h-screen flex items-center justify-center">Nie znaleziono oferty.</div>;
 
-  // Obliczenia zysków
-  const estimatedProfit = parties ? Math.round(Number(parties) * 0.67 * 52) : 0;
-  const staffCommission = parties ? Math.round(Number(parties) * 0.67 * 22.35) : 0;
-
-  // Fallbacki kolorystyczne
   const primaryColor = partner.Theme?.primaryColor || "#3b82f6";
   
-  // Dane Handlowca (Fallback jeśli brak zdjęcia w bazie)
-  const salesPhotoUrl = salesperson?.PhotoUrl || "https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/Handlowcy/Siwy1.webp";
+  // LOGIKA ZDJĘCIA: 
+  // 1. URL Parameter (Testowanie)
+  // 2. Baza Danych Partnera (ProposalPhotoUrl)
+  // 3. Default Hardcoded
+  const displayPhotoUrl = customPhotoUrl || partner.ProposalPhotoUrl || DEFAULT_PROPOSAL_PHOTO;
 
-  // Audio URL source logic
   const audioSource = partner.IntroUrl || "https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/Others/Probki/maluchy%20background.mp3";
 
   const benefits = [
@@ -152,114 +153,97 @@ const ProposalView: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] font-sans text-slate-900 selection:bg-blue-100 selection:text-blue-900 relative pt-16">
+    <div className="min-h-screen bg-[#FDFBF7] font-sans text-slate-900 selection:bg-blue-100 selection:text-blue-900 relative">
       
       {/* HEADER Z POWROTEM - FIXED */}
-      <div className="fixed top-0 left-0 right-0 z-[100] bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center shadow-sm">
+      <div className="fixed top-0 left-0 right-0 z-[100] bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center shadow-sm h-16">
           <div className="flex items-center gap-2">
               <span className="bg-emerald-600 text-white text-[10px] font-black uppercase px-2 py-1 rounded tracking-widest">LIVE</span>
               <span className="font-bold text-slate-900 text-sm">Propozycja Współpracy</span>
           </div>
-          {/* Ten przycisk jest ukryty dla klienta (można dodać warunek admina), ale zostawiamy go dla łatwej nawigacji */}
           <Link to="/hub" className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-bold text-xs uppercase tracking-wide flex items-center gap-2 transition-colors">
               <ChevronLeft size={16}/> Panel
           </Link>
       </div>
 
       {/* 1. HERO & PERSONAL INTRO */}
-      <section className="relative pt-8 pb-20 px-6 overflow-hidden min-h-[85vh] flex flex-col justify-start md:justify-center">
+      <section className="relative pt-24 pb-12 px-6 overflow-hidden min-h-[85vh] flex flex-col justify-start">
          <div className="absolute top-0 left-0 w-full h-[60vh] bg-gradient-to-b from-blue-50 to-[#FDFBF7] -z-10" />
          
          <div className="max-w-6xl mx-auto w-full h-full">
-            {/* Logo Partnera - Bez ramki, mniejszy margin, wyżej */}
-            <div className="flex justify-center md:justify-start mb-6">
+            {/* Logo Partnera */}
+            <div className="flex justify-center md:justify-start mb-4">
                  {partner.LogoUrl ? (
-                    <img src={partner.LogoUrl} alt={partner.PartnerName} className="h-20 md:h-28 w-auto object-contain drop-shadow-sm" />
+                    <img src={partner.LogoUrl} alt={partner.PartnerName} className="h-16 md:h-24 w-auto object-contain drop-shadow-sm" />
                  ) : (
-                    <div className="h-20 px-6 bg-white rounded-2xl flex items-center justify-center font-display font-black text-2xl text-slate-800 shadow-sm border border-slate-200">
+                    <div className="h-16 px-6 bg-white rounded-2xl flex items-center justify-center font-display font-black text-xl text-slate-800 shadow-sm border border-slate-200">
                         {partner.PartnerName}
                     </div>
                  )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-12 items-center h-full">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-start md:items-center h-full">
                 
                 {/* Left: Text Content */}
                 <motion.div 
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    className="md:col-span-7 space-y-8 text-center md:text-left z-10"
+                    className="md:col-span-7 space-y-6 text-center md:text-left z-10 pt-2"
                 >
                     <h1 className="text-4xl md:text-6xl font-display font-black leading-tight text-slate-900">
                         Cześć, <span style={{color: primaryColor}}>Ekipo {partner.PartnerName}!</span>
                     </h1>
-                    <div className="space-y-6 text-lg text-slate-600 font-medium leading-relaxed max-w-2xl mx-auto md:mx-0">
+                    <div className="space-y-4 text-lg text-slate-600 font-medium leading-relaxed max-w-2xl mx-auto md:mx-0">
                         <p>
-                            Dziękuję za nasze dzisiejsze spotkanie. Wierzę, że <strong>{partner.PartnerName}</strong> ma potencjał, by stać się miejscem, które dzieci zapamiętają na całe życie – nie tylko jako park rozrywki, ale jako początek ich wielkiej, osobistej przygody.
+                            Dziękuję za nasze dzisiejsze spotkanie. Wierzę, że <strong>{partner.PartnerName}</strong> ma potencjał, by stać się miejscem, które dzieci zapamiętają na całe życie.
                         </p>
                         <p>
                             Poniżej zebrałem najważniejsze informacje, o których rozmawialiśmy, oraz przygotowałem wizualizację tego, jak nasze rozwiązanie zadziała u Was.
                         </p>
                     </div>
                     
-                    {/* Salesperson Card - HIDDEN ON MOBILE (Desktop only) */}
+                    {/* Salesperson Contact Info - Optional Display */}
                     {salesperson && (
-                        <div className="hidden md:inline-flex items-center gap-4 bg-white p-4 pr-8 rounded-full shadow-sm border border-slate-200 mt-4">
-                            <div className="w-14 h-14 bg-slate-100 rounded-full overflow-hidden border-2 border-white shadow-md relative">
-                                <div className="w-full h-full flex items-center justify-center bg-blue-100 text-blue-600 font-bold text-xl">
-                                    {salesperson.imie.charAt(0)}{salesperson.nazwisko.charAt(0)}
-                                </div>
-                            </div>
-                            <div className="text-left">
-                                <div className="font-bold text-slate-900">{salesperson.imie} {salesperson.nazwisko}</div>
-                                <div className="text-xs text-slate-500 font-bold uppercase tracking-wide">Twój Opiekun</div>
-                            </div>
-                            <div className="h-8 w-px bg-slate-200 mx-2" />
-                            <a href={`tel:${salesperson.telefon}`} className="flex items-center justify-center w-10 h-10 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors">
-                                <Phone size={18} />
-                            </a>
-                            <a href={`mailto:${salesperson.email}`} className="flex items-center justify-center w-10 h-10 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors">
-                                <Mail size={18} />
-                            </a>
-                        </div>
-                    )}
-                </motion.div>
-
-                {/* Right: Salesperson Photo */}
-                <motion.div 
-                    initial={{ opacity: 0, y: 50 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="md:col-span-5 relative h-[50vh] md:h-full flex flex-col items-center justify-end"
-                >
-                    {/* Blob Background */}
-                    <div className="absolute bottom-0 right-0 md:right-10 w-64 h-64 md:w-96 md:h-96 bg-gradient-to-tr from-orange-200 to-amber-200 rounded-full blur-3xl opacity-50 -z-10" />
-                    
-                    {/* Image */}
-                    <img 
-                        src={salesPhotoUrl}
-                        alt={salesperson?.imie || "Opiekun"} 
-                        className="max-h-full w-auto object-contain drop-shadow-2xl z-10"
-                        style={{ maskImage: 'linear-gradient(to bottom, black 90%, transparent 100%)' }}
-                    />
-
-                    {/* Salesperson Card - MOBILE ONLY (Under Photo) */}
-                    {salesperson && (
-                        <div className="flex md:hidden items-center gap-3 bg-white p-3 pr-6 rounded-full shadow-lg border border-slate-100 mt-[-20px] relative z-20 mb-4">
+                        <div className="hidden md:inline-flex items-center gap-4 bg-white p-3 pr-6 rounded-full shadow-sm border border-slate-200 mt-2">
                             <div className="text-left pl-2">
                                 <div className="font-bold text-slate-900 text-sm">{salesperson.imie} {salesperson.nazwisko}</div>
                                 <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Twój Opiekun</div>
                             </div>
-                            <div className="h-6 w-px bg-slate-200 mx-1" />
-                            <a href={`tel:${salesperson.telefon}`} className="flex items-center justify-center w-8 h-8 bg-blue-50 text-blue-600 rounded-full">
+                            <div className="h-6 w-px bg-slate-200 mx-2" />
+                            <a href={`tel:${salesperson.telefon}`} className="flex items-center justify-center w-8 h-8 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors">
                                 <Phone size={14} />
                             </a>
-                            <a href={`mailto:${salesperson.email}`} className="flex items-center justify-center w-8 h-8 bg-blue-50 text-blue-600 rounded-full">
+                            <a href={`mailto:${salesperson.email}`} className="flex items-center justify-center w-8 h-8 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors">
                                 <Mail size={14} />
                             </a>
                         </div>
                     )}
                 </motion.div>
+
+                {/* Right: Custom Photo */}
+                <motion.div 
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="md:col-span-5 relative flex flex-col items-center justify-start md:justify-center mt-4 md:mt-0"
+                >
+                    {/* Blob Background */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 md:w-80 md:h-80 bg-gradient-to-tr from-blue-200 to-indigo-100 rounded-full blur-3xl opacity-60 -z-10" />
+                    
+                    {/* Image */}
+                    <img 
+                        src={displayPhotoUrl}
+                        alt="Propozycja" 
+                        className="w-full max-w-sm md:max-w-md object-contain drop-shadow-2xl rounded-2xl md:rounded-[2rem] z-10 transform md:rotate-2 hover:rotate-0 transition-transform duration-500"
+                    />
+                </motion.div>
+            </div>
+         </div>
+
+         {/* PULSUJĄCA STRZAŁKA NA DOLE */}
+         <div className="absolute bottom-6 left-0 right-0 flex justify-center pointer-events-none">
+            <div className="animate-bounce bg-white/80 backdrop-blur p-2 rounded-full shadow-lg border border-slate-100 text-blue-600">
+                <ChevronDown size={24} strokeWidth={3} />
             </div>
          </div>
       </section>
@@ -466,50 +450,7 @@ const ProposalView: React.FC = () => {
                   </div>
               </div>
 
-              {/* 5. PROFIT CALCULATOR */}
-              <div id="calculator" className="bg-gradient-to-br from-slate-50 to-blue-50/50 rounded-[2.5rem] p-8 md:p-16 text-center border border-slate-200">
-                  <span className="text-blue-600 font-black text-xs uppercase tracking-[0.2em] mb-4 block">Kalkulator Zysków (Model Prowizyjny)</span>
-                  <h2 className="text-4xl md:text-6xl font-display font-black text-slate-900 mb-6">
-                      Ile zarobisz miesięcznie?
-                  </h2>
-
-                  {/* TEKST POTENCJAŁ RYNKU */}
-                  <div className="max-w-2xl mx-auto mb-10 text-center">
-                      <h4 className="text-blue-600 font-bold uppercase tracking-widest text-xs mb-2">Potencjał Rynku</h4>
-                      <p className="text-slate-500 font-medium leading-relaxed">
-                          Nasze badania rynku wykazały, że ponad <span className="text-slate-900 font-bold">67%</span> rodziców organizujących urodziny w centrach rozrywki, jest zainteresowane zakupem MultiBajki.
-                      </p>
-                  </div>
-
-                  <div className="max-w-xl mx-auto bg-white p-8 rounded-3xl shadow-xl border border-slate-100 mb-10">
-                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 block">Liczba urodzin w miesiącu</label>
-                      <div className="flex items-center justify-center gap-4">
-                          <input 
-                              type="number" 
-                              value={parties}
-                              onChange={(e) => setParties(e.target.value)}
-                              className="w-32 bg-slate-50 text-slate-900 font-black text-4xl p-4 rounded-2xl text-center focus:outline-none focus:ring-4 focus:ring-blue-100 border-2 border-slate-200"
-                          />
-                          <span className="text-lg font-bold text-slate-400">imprez</span>
-                      </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto mb-8">
-                      <div className="bg-green-500 text-white p-8 rounded-[2rem] shadow-lg transform hover:scale-105 transition-transform duration-300">
-                          <div className="text-green-100 text-sm font-bold uppercase tracking-widest mb-2">Twój Zysk Netto</div>
-                          <div className="text-5xl font-black">{estimatedProfit} PLN</div>
-                      </div>
-                      <div className="bg-white text-slate-900 p-8 rounded-[2rem] shadow-lg border border-slate-100">
-                          <div className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-2">Bonus dla Pracowników</div>
-                          <div className="text-4xl font-black text-indigo-600">{staffCommission} PLN</div>
-                          <div className="text-slate-400 text-xs mt-2 font-medium">motywacja dla zespołu</div>
-                      </div>
-                  </div>
-
-                  <p className="text-xs text-slate-400 font-medium max-w-lg mx-auto">
-                      *Szacunki: cena 149 zł, konwersja 67%. Prowizja załogi: 15%.
-                  </p>
-              </div>
+              {/* KALKULATOR ZOSTAŁ USUNIĘTY ZGODNIE Z PROŚBĄ */}
 
           </div>
       </section>
@@ -621,7 +562,7 @@ const ProposalView: React.FC = () => {
               </div>
 
               {/* MOCKUP TELEFONU Z LIVE PREVIEW IFRAME */}
-              <div className="relative w-[300px] md:w-[360px] aspect-[9/19] bg-slate-800 rounded-[3rem] border-[8px] border-slate-700 shadow-2xl overflow-hidden shrink-0 transform rotate-[-2deg] hover:rotate-0 transition-transform duration-500">
+              <div className="relative w-[300px] md:w-[360px] aspect-[9/16] bg-slate-800 rounded-[2.5rem] border-[8px] border-slate-700 shadow-2xl overflow-hidden shrink-0 transform rotate-[-2deg] hover:rotate-0 transition-transform duration-500">
                   {/* Pasek statusu fake */}
                   <div className="absolute top-0 inset-x-0 h-6 bg-black z-20 flex justify-center">
                       <div className="w-1/3 h-full bg-black rounded-b-xl" />

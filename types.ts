@@ -35,6 +35,7 @@ export interface Partner {
   Slug: string;
   LogoUrl: string | null;
   PhotoUrl?: string | null; // Zdjęcie obiektu/partnera (Poster)
+  ProposalPhotoUrl?: string | null; // NOWE: Zdjęcie do oferty (zamiast handlowca)
   IntroUrl?: string | null; // URL do pliku MP3 z Intro
   HeroHeader?: string | null; // Nagłówek w sekcji Hero
   Theme: ThemeConfig | null; // JSONB

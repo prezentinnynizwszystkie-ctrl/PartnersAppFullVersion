@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Partner, Handlowiec } from '../../types';
-import { Search, Mail, Send, Loader2, CheckCircle2, ArrowRight, X, AlertTriangle, UserPlus, ChevronDown, AlertCircle, PenTool, Eye } from 'lucide-react';
+import { Search, Mail, Send, Loader2, CheckCircle2, ArrowRight, X, AlertTriangle, UserPlus, ChevronDown, AlertCircle, PenTool, Eye, User } from 'lucide-react';
 import { supabase } from '../../utils/supabaseClient';
 import { getPostMeetingTemplate } from '../../utils/emailTemplates';
 
@@ -25,6 +25,7 @@ export const AdminMailView: React.FC<AdminMailViewProps> = ({ partners, salespeo
     const [senderEmail, setSenderEmail] = useState(VERIFIED_SENDERS[0]);
     const [selectedSignerId, setSelectedSignerId] = useState<number | ''>(''); // ID Handlowca
     const [recipientEmail, setRecipientEmail] = useState('');
+    const [recipientName, setRecipientName] = useState(''); // NOWE POLE: Imię do powitania
     const [template, setTemplate] = useState<'EMPTY' | 'POST_MEETING'>('EMPTY');
     const [subject, setSubject] = useState('');
     const [body, setBody] = useState('');
@@ -59,15 +60,15 @@ export const AdminMailView: React.FC<AdminMailViewProps> = ({ partners, salespeo
         }
     }, [selectedPartner, salespeople]);
 
-    // Update content when template or signer changes
+    // Update content when template, signer or RECIPIENT NAME changes
     useEffect(() => {
         if (template === 'POST_MEETING') {
             setSubject('Podsumowanie rozmowy - MultiBajka');
             
-            const partnerName = selectedPartner ? selectedPartner.PartnerName : 'Partnerze';
+            // Używamy wpisanego ręcznie imienia lub nazwy partnera
+            const nameToUse = recipientName.trim() || (selectedPartner ? selectedPartner.PartnerName : 'Partnerze');
             
             // Generate Dynamic Link to Proposal
-            // Use window.location.origin to get base URL (e.g. https://multibajka.pl or localhost)
             const baseUrl = window.location.origin;
             const proposalLink = selectedPartner ? `${baseUrl}/#/${selectedPartner.Slug}/propozycja` : `${baseUrl}/#/demo/propozycja`;
             
@@ -83,14 +84,14 @@ export const AdminMailView: React.FC<AdminMailViewProps> = ({ partners, salespeo
                 }
             }
 
-            setBody(getPostMeetingTemplate(partnerName, signerName, signerPhone, proposalLink));
+            setBody(getPostMeetingTemplate(nameToUse, signerName, signerPhone, proposalLink));
         } else {
             if (template === 'EMPTY' && subject === 'Podsumowanie rozmowy - MultiBajka') {
                setSubject('');
                setBody('');
             }
         }
-    }, [template, selectedPartner, selectedSignerId, salespeople]);
+    }, [template, selectedPartner, selectedSignerId, salespeople, recipientName]);
 
     const handleSelectPartner = (p: Partner) => {
         if (!p.contact_email) {
@@ -98,6 +99,7 @@ export const AdminMailView: React.FC<AdminMailViewProps> = ({ partners, salespeo
         }
         setSelectedPartner(p);
         setRecipientEmail(p.contact_email || '');
+        setRecipientName(p.PartnerName); // Domyślnie nazwa firmy
         setStep(2);
         setSentSuccess(false);
         setNotification(null);
@@ -106,6 +108,7 @@ export const AdminMailView: React.FC<AdminMailViewProps> = ({ partners, salespeo
     const handleSelectCustom = () => {
         setSelectedPartner(null);
         setRecipientEmail('');
+        setRecipientName(''); // Puste dla custom
         setTemplate('EMPTY');
         setSubject('');
         setBody('');
@@ -164,6 +167,7 @@ export const AdminMailView: React.FC<AdminMailViewProps> = ({ partners, salespeo
                 setSubject('');
                 setBody('');
                 setRecipientEmail('');
+                setRecipientName('');
                 setSentSuccess(false);
                 setNotification(null);
             }, 3000);
@@ -321,9 +325,9 @@ export const AdminMailView: React.FC<AdminMailViewProps> = ({ partners, salespeo
                                 </div>
                             </div>
 
-                            {/* Recipient Input */}
+                            {/* Recipient Input - Email */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Odbiorca (To)</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Odbiorca Email (To)</label>
                                 <input 
                                     type="email"
                                     value={recipientEmail}
@@ -331,9 +335,23 @@ export const AdminMailView: React.FC<AdminMailViewProps> = ({ partners, salespeo
                                     placeholder="adres@odbiorcy.pl"
                                     className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-blue-500 text-sm"
                                 />
+                            </div>
+
+                            {/* Recipient Input - NAME (Greeting) */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1 flex items-center gap-1">
+                                    <User size={12} /> Imię Odbiorcy (do powitania)
+                                </label>
+                                <input 
+                                    type="text"
+                                    value={recipientName}
+                                    onChange={(e) => setRecipientName(e.target.value)}
+                                    placeholder="np. Anno (użyte w 'Cześć Anno,')"
+                                    className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-blue-500 text-sm"
+                                />
                                 {selectedPartner && (
-                                    <div className="mt-1 text-[10px] text-blue-600 font-bold px-1">
-                                        Partner: {selectedPartner.PartnerName}
+                                    <div className="mt-1 text-[10px] text-slate-400 font-medium px-1">
+                                        Partner z bazy: <span className="text-blue-600 font-bold">{selectedPartner.PartnerName}</span>
                                     </div>
                                 )}
                             </div>

@@ -640,7 +640,7 @@ const PartnerLanding: React.FC = () => {
                    <div className="mt-8 pt-8 border-t border-white/10">
                         <div className="bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center gap-4 hover:bg-white/10 transition-colors group">
                             <button
-                                onClick={() => handleToggleAudio('article-audio', 'https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/Others/Probki/artykul_dla_rodzica.mp3')}
+                                onClick={() => handleToggleAudio('article-audio', 'https://idbvgxjvitowbysvpjlk.supabase.co/storage/v1/object/public/PartnersApp/Others/articles/artykul_dla_rodzica.mp3')}
                                 className="w-14 h-14 bg-[#fccb00] text-slate-900 rounded-full flex items-center justify-center shrink-0 shadow-lg group-hover:scale-105 transition-transform"
                             >
                                 {activeAudioId === 'article-audio' ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
@@ -651,7 +651,7 @@ const PartnerLanding: React.FC = () => {
                                 </div>
                                 <div className="font-bold text-white leading-tight text-sm">
                                     Nie masz czasu czytać? <br/>
-                                    <span className="text-[#fccb00]">Posłuchaj!</span>
+                                    <span className="text-[#fccb00]">Posłuchaj (3 min)</span>
                                 </div>
                             </div>
                             {/* Simple Visualizer Animation if playing */}
